@@ -1,0 +1,6 @@
+{
+  "name": "VieSimple",
+  "description": "Assistant de vie familiale et administratif pour centraliser documents, échéances, abonnements et tâches.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

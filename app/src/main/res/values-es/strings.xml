@@ -1,0 +1,114 @@
+<resources>
+    <string name="app_name">VieSimple</string>
+    <string name="app_tagline">No olvides nada, no pierdas ningún documento y ten claro qué hacer después.</string>
+    <string name="nav_home">Inicio</string>
+    <string name="nav_vault">Bóveda</string>
+    <string name="nav_deadlines">Plazos</string>
+    <string name="nav_tasks">Tareas</string>
+    <string name="nav_more">Más</string>
+
+    <string name="action_scan">Escanear</string>
+    <string name="action_scan_sub">Foto y OCR</string>
+    <string name="action_ai">Asistente IA</string>
+    <string name="action_ai_sub">Ayuda y consejos</string>
+    <string name="action_letters_library">Biblioteca de cartas PDF (rellenadas)</string>
+    <string name="action_search">Buscar</string>
+    <string name="action_save">Guardar</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="action_delete">Eliminar</string>
+    <string name="action_confirm">Confirmar</string>
+    <string name="action_back">Volver</string>
+    <string name="action_edit">Editar</string>
+    <string name="action_refresh">Actualizar</string>
+    <string name="action_clear">Vaciar</string>
+
+    <string name="sign_in_google">Continuar directamente con Google</string>
+    <string name="auth_checking_session">Verificando tu sesión de forma segura…</string>
+    <string name="auth_no_password_hint">Acceso directo sin contraseña: tu cuenta personal de VieSimple se crea automáticamente al iniciar sesión con Google y se protege con huella o biometría.</string>
+    <string name="auth_accept_legal">Acepto las Condiciones Generales y la Política de Privacidad.</string>
+    <string name="auth_terms">Condiciones generales</string>
+    <string name="auth_privacy">Privacidad</string>
+    <string name="auth_learn_security">Más información sobre la seguridad de tus datos</string>
+
+    <string name="search_placeholder">Buscar documento, tarea, suscripción, etiqueta…</string>
+    <string name="this_week_title">Esta semana</string>
+    <string name="this_week_action">Agenda</string>
+    <string name="metric_docs">Documentos</string>
+    <string name="metric_upcoming">Próximos</string>
+    <string name="metric_urgent">Urgentes</string>
+    <string name="metric_subs">Suscr. / mes</string>
+
+    <string name="offline_cache_title">Sin conexión · Caché local Room activa</string>
+    <string name="offline_cache_summary">Caché local Room: %1$d doc(s), %2$d tarea(s), %3$d suscripción(es).</string>
+
+    <string name="subscriptions_title">Suscripciones</string>
+    <string name="subscriptions_subtitle">Controla tus suscripciones mensuales recurrentes, costes y fechas de renovación (caché local Room).</string>
+    <string name="subscriptions_monthly_cost">Coste mensual estimado</string>
+    <string name="subscriptions_annual_cost">Total anual estimado</string>
+    <string name="subscriptions_add">Añadir suscripción</string>
+    <string name="subscriptions_empty_title">No hay suscripciones guardadas</string>
+    <string name="subscriptions_empty_desc">Añade tus suscripciones (streaming, telefonía, seguro, gimnasio) para controlar el coste mensual y las próximas renovaciones.</string>
+    <string name="subscriptions_filter_all">Todas (%1$d)</string>
+    <string name="subscriptions_filter_monthly">Mensuales recurrentes (%1$d)</string>
+    <string name="subscriptions_filter_active">Activas</string>
+    <string name="subscriptions_filter_to_cancel">Por cancelar</string>
+    <string name="subscriptions_filter_paused">En pausa</string>
+    <string name="subscriptions_filter_cancelled">Canceladas</string>
+    <string name="subscriptions_next_renewal">Próxima renovación: %1$s</string>
+    <string name="subscriptions_cancel_letter">Carta de baja</string>
+    <string name="subscriptions_room_badge">Room sin conexión · %1$d suscripción(es)</string>
+
+    <string name="more_account_security">Cuenta y Seguridad</string>
+    <string name="more_subs_title">Suscripciones y bajas</string>
+    <string name="more_subs_sub">Seguimiento mensual, renovaciones y cartas</string>
+    <string name="more_household_title">Espacio familiar</string>
+    <string name="more_household_sub">Miembros, roles y actividad</string>
+    <string name="more_ai_title">Asistente IA VieSimple</string>
+    <string name="more_ai_sub">Preguntas, resúmenes y acciones sugeridas</string>
+    <string name="more_letters_sub">PDF rellenados, bajas, impuestos…</string>
+    <string name="more_search_title">Búsqueda universal</string>
+    <string name="more_search_sub">Documentos, tareas, suscripciones y etiquetas</string>
+    <string name="more_profile_title">Mi perfil</string>
+    <string name="more_profile_sub">Información y hogar activo</string>
+    <string name="more_settings_title">Seguridad, idioma y tema</string>
+    <string name="more_settings_sub">PIN, biometría, idioma y caché Room</string>
+    <string name="more_notif_title">Recordatorios y notificaciones</string>
+    <string name="more_notif_sub">Alertas D-3, FCM y calendario</string>
+    <string name="more_premium_title">Plan VieSimple Premium</string>
+    <string name="more_premium_sub">Gratis, Individual o Familiar</string>
+    <string name="more_support_title">Ayuda, Condiciones y Privacidad</string>
+    <string name="more_support_sub">Preguntas frecuentes y RGPD</string>
+    <string name="more_export_title">Exportar mis datos (JSON)</string>
+    <string name="more_export_sub">Descargar copia completa</string>
+    <string name="more_delete_title">Eliminar mi cuenta</string>
+    <string name="more_delete_sub">Borrado definitivo de tus datos</string>
+
+    <string name="settings_title">Seguridad y Ajustes</string>
+    <string name="settings_appearance_title">Apariencia</string>
+    <string name="settings_theme_system">Sistema</string>
+    <string name="settings_theme_light">Claro</string>
+    <string name="settings_theme_dark">Oscuro</string>
+    <string name="settings_language_title">Idioma de la aplicación</string>
+    <string name="settings_language_desc">Elige el idioma de VieSimple (se aplica al instante).</string>
+    <string name="settings_language_system">Sistema</string>
+    <string name="settings_language_updated">Idioma actualizado: %1$s</string>
+    <string name="settings_room_title">Caché local sin conexión (Room)</string>
+    <string name="settings_room_summary">%1$d documento(s), %2$d tarea(s) y %3$d suscripción(es) guardados localmente para consulta sin internet.</string>
+
+    <string name="notif_title">Recordatorios y Notificaciones</string>
+    <string name="notif_worker_title">Tarea en segundo plano (WorkManager · Firestore)</string>
+    <string name="notif_worker_default_desc">Comprobación periódica de plazos administrativos en Firestore con alerta automática D-3 (3 días antes).</string>
+    <string name="notif_worker_run_now">Comprobar plazos (D-3) ahora</string>
+
+    <string name="notification_channel_name">Recordatorios VieSimple</string>
+    <string name="notification_channel_desc">Recordatorios privados de plazos, documentos y tareas</string>
+    <string name="default_notification_channel_id">viesimple_reminders</string>
+    <string name="safe_notif_deadline_title">Recordatorio VieSimple</string>
+    <string name="safe_notif_deadline_body">Se acerca un plazo administrativo importante. Abre VieSimple para ver los detalles.</string>
+    <string name="safe_notif_task_overdue_title">Recordatorio VieSimple · Tareas</string>
+    <string name="safe_notif_task_overdue_body">Tienes una o más tareas vencidas. Abre VieSimple para consultarlas.</string>
+    <string name="safe_notif_lockscreen_title">VieSimple</string>
+    <string name="safe_notif_lockscreen_body">Nuevo recordatorio disponible en tu espacio seguro.</string>
+    <string name="safe_notif_fcm_generic_title">Recordatorio VieSimple</string>
+    <string name="safe_notif_fcm_generic_body">Tienes un nuevo recordatorio confidencial. Abre VieSimple para verlo.</string>
+</resources>

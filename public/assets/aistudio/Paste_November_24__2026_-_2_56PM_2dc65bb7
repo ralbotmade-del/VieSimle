@@ -1,0 +1,949 @@
+Tu es un développeur full-stack senior, un product designer et un architecte logiciel.
+Construis une application mobile complète, sécurisée et prête pour un MVP intitulée :
+
+**VieSimple**
+
+VieSimple est un assistant de vie familiale et administratif qui permet aux particuliers et aux familles de centraliser leurs documents importants, suivre leurs échéances, gérer leurs abonnements, organiser leurs tâches et recevoir des rappels intelligents.
+
+L’objectif est simple : aider l’utilisateur à ne plus rien oublier, ne plus rien perdre et savoir exactement quoi faire ensuite.
+
+Construis une application mobile iOS et Android avec une architecture backend sécurisée, une interface claire en français, un fonctionnement partiel hors ligne et une base de données relationnelle.
+
+---
+
+## 1. CONTEXTE PRODUIT
+
+### Problème à résoudre
+Les utilisateurs dispersent leurs informations importantes entre e-mails, photos, notes, tiroirs, applications bancaires et abonnements. Ils oublient des échéances, perdent des documents, paient des abonnements inutiles et peinent à organiser les tâches du foyer.
+
+### Solution
+VieSimple centralise :
+- Les documents importants : contrats, assurances, factures, garanties, cartes d’identité, justificatifs.
+- Les échéances : renouvellements, impôts, assurances, rendez-vous, factures, garanties.
+- Les abonnements récurrents : streaming, téléphonie, assurance, salle de sport, logiciels.
+- Les tâches du foyer : courses, rendez-vous, démarches, réparations, documents à fournir.
+- Un assistant IA : réponses, résumés, suggestions et modèles de courriers.
+
+### Utilisateurs cibles
+- Personnes seules souhaitant organiser leur vie administrative.
+- Couples ou familles souhaitant partager certaines informations.
+- Jeunes actifs souhaitant maîtriser leurs abonnements.
+- Parents gérant les documents et rendez-vous du foyer.
+- Personnes moins à l’aise avec le numérique.
+
+### Promesse
+« Ne plus rien oublier, ne plus rien perdre, et savoir quoi faire ensuite. »
+
+---
+
+## 2. RÔLES UTILISATEURS
+
+Crée les rôles suivants :
+
+1. **Utilisateur individuel**
+- Crée son compte.
+- Ajoute ses documents, échéances, abonnements et tâches.
+- Peut rester totalement privé.
+
+2. **Propriétaire de foyer**
+- Crée un foyer.
+- Invite des membres.
+- Gère les rôles et les éléments partagés.
+- Peut supprimer le foyer.
+
+3. **Membre de foyer**
+- Accède uniquement aux éléments explicitement partagés.
+- Peut ajouter des tâches ou échéances partagées selon ses permissions.
+- Ne peut pas accéder aux documents privés des autres membres.
+
+4. **Administrateur**
+- Gère les membres du foyer.
+- Peut modifier les éléments partagés.
+- Ne peut pas lire les documents privés sans autorisation explicite.
+
+5. **Administrateur de l’application**
+- Accès réservé à l’équipe VieSimple.
+- Gère les utilisateurs, abonnements, support et modération.
+- Ne doit jamais avoir accès en clair aux documents des utilisateurs sans procédure légitime, traçable et encadrée.
+
+---
+
+## 3. PÉRIMÈTRE DU MVP
+
+Construis uniquement les fonctionnalités suivantes pour la première version.
+
+### Fonctionnalités indispensables
+- Inscription et connexion.
+- Tableau de bord intelligent.
+- Coffre-fort documentaire.
+- Scan de documents et OCR.
+- Échéancier et rappels.
+- Gestion des abonnements.
+- Tâches et checklists.
+- Recherche universelle.
+- Catégories prédéfinies.
+- Espace familial avec partage sélectif.
+- Assistant IA assisté.
+- Modèles de courriers.
+- Notifications push.
+- Sécurité par code PIN, Face ID ou empreinte.
+- Export et suppression des données.
+- Abonnement premium.
+
+### À exclure du MVP
+- Connexion bancaire automatique.
+- Détection automatique des abonnements depuis un relevé bancaire.
+- Paiement de factures.
+- Signature électronique de documents.
+- Conseils juridiques, fiscaux ou médicaux personnalisés.
+- Marketplace de prestataires.
+- Réseautage social.
+- Publicité intrusive.
+- Revente de données personnelles.
+- Intégrations complexes avec des administrations publiques.
+
+---
+
+## 4. MODULES DE L’APPLICATION
+
+### Module 1 : Onboarding et compte utilisateur
+
+Crée un onboarding court, clair et rassurant.
+
+Étapes :
+1. Écran de bienvenue présentant les bénéfices :
+   - Centraliser les documents importants.
+   - Ne plus oublier les échéances.
+   - Maîtriser les abonnements.
+   - Organiser la vie du foyer.
+
+2. Création de compte :
+   - Inscription par e-mail et mot de passe.
+   - Connexion avec Apple.
+   - Connexion avec Google.
+   - Réinitialisation du mot de passe.
+
+3. Choix du profil :
+   - Je suis seul.
+   - Nous sommes en couple.
+   - Nous sommes une famille.
+   - Nous sommes en colocation.
+
+4. Activation des notifications :
+   - Expliquer clairement pourquoi les notifications sont utiles.
+   - Permettre de les activer plus tard.
+
+5. Import du premier document :
+   - Proposer de photographier ou importer un document.
+   - Proposer des exemples : assurance, facture, carte d’identité, contrat de bail.
+
+Règles :
+- L’e-mail doit être valide.
+- Le mot de passe doit contenir au moins 12 caractères.
+- L’utilisateur doit accepter les conditions générales et la politique de confidentialité.
+- L’utilisateur peut supprimer son compte à tout moment.
+- L’utilisateur peut exporter ses données.
+
+---
+
+### Module 2 : Tableau de bord
+
+Crée un tableau de bord personnalisé nommé « Accueil ».
+
+Affiche :
+- Salutation personnalisée.
+- Nombre de documents enregistrés.
+- Prochaines échéances.
+- Échéances urgentes.
+- Tâches en retard.
+- Abonnements à renouveler.
+- Documents expirant bientôt.
+- Résumé de la semaine.
+- Accès rapide à l’assistant IA.
+- Accès rapide au scan de document.
+
+Sections :
+- « Cette semaine »
+- « Urgent »
+- « À venir »
+- « Documents récents »
+- « Tâches du foyer »
+- « Abonnements à surveiller »
+
+Comportements :
+- Si aucune donnée n’existe, afficher un état vide avec un bouton « Ajouter mon premier document ».
+- Si une échéance est dans moins de 7 jours, la mettre en avant.
+- Si une échéance est dépassée, l’afficher en rouge avec une action « Marquer comme traitée » ou « Repousser ».
+- Permettre de glisser pour marquer une tâche comme terminée.
+
+---
+
+### Module 3 : Coffre-fort documentaire
+
+Crée un coffre-fort numérique sécurisé.
+
+Fonctionnalités :
+- Importer un document depuis la galerie, l’appareil photo ou les fichiers.
+- Scanner un document avec la caméra.
+- Recadrer automatiquement le document.
+- Améliorer la lisibilité de l’image.
+- Convertir une photo en PDF.
+- Effectuer un OCR pour extraire le texte.
+- Détecter automatiquement des informations clés :
+  - Titre du document.
+  - Date.
+  - Date d’expiration.
+  - Montant.
+  - Organisme émetteur.
+  - Numéro de contrat ou de référence.
+- Proposer une catégorie automatique.
+- Permettre à l’utilisateur de valider ou corriger les informations extraites.
+- Organiser les documents par dossiers.
+- Ajouter des tags personnalisés.
+- Ajouter des notes à un document.
+- Marquer un document comme favori.
+- Remplacer un document par une nouvelle version.
+- Conserver l’historique des versions.
+- Rechercher un document par titre, catégorie, date, tag ou contenu OCR.
+- Exporter un document en PDF.
+- Supprimer un document définitivement après confirmation.
+
+Catégories prédéfinies :
+- Assurance.
+- Santé.
+- Logement.
+- Véhicule.
+- Impôts.
+- Banque.
+- Famille.
+- Abonnements.
+- Travail.
+- Éducation.
+- Administratif.
+- Autre.
+
+Champs d’un document :
+- Titre.
+- Catégorie.
+- Type de document.
+- Date du document.
+- Date d’expiration.
+- Organisme émetteur.
+- Numéro de référence.
+- Montant.
+- Notes.
+- Tags.
+- Niveau de confidentialité.
+- Statut : actif, expiré, à renouveler, archivé.
+- Fichier PDF ou image.
+- Texte OCR.
+- Historique des versions.
+
+Règles :
+- Un document peut être privé ou partagé avec le foyer.
+- Par défaut, un document est privé.
+- Aucun document ne doit être partagé publiquement.
+- La suppression doit demander une confirmation explicite.
+- Les documents doivent être chiffrés.
+- Les documents sensibles ne doivent jamais apparaître en clair dans les notifications.
+
+---
+
+### Module 4 : Scan et OCR
+
+Crée une expérience de scan simple.
+
+Parcours :
+1. L’utilisateur appuie sur « Scanner un document ».
+2. La caméra s’ouvre.
+3. L’application détecte automatiquement les bords du document.
+4. L’utilisateur peut recadrer, faire pivoter et ajuster l’image.
+5. L’application améliore la lisibilité.
+6. L’application effectue un OCR.
+7. L’application propose :
+   - Un titre.
+   - Une catégorie.
+   - Une date.
+   - Une date d’expiration.
+   - Un montant.
+   - Un organisme.
+   - Des tags.
+8. L’utilisateur valide ou modifie les informations.
+9. Le document est enregistré dans le coffre-fort.
+10. Si une date d’expiration est détectée, l’application propose de créer une échéance.
+
+Règles :
+- L’OCR doit fonctionner au minimum pour le français et l’anglais.
+- L’utilisateur doit pouvoir corriger manuellement toutes les informations extraites.
+- Si l’OCR échoue, l’application doit permettre l’enregistrement manuel.
+- Les données extraites ne doivent jamais être présentées comme certaines si la confiance est faible.
+
+---
+
+### Module 5 : Échéancier intelligent
+
+Crée un module d’échéances et de rappels.
+
+Fonctionnalités :
+- Créer une échéance manuellement.
+- Associer une échéance à un document.
+- Associer une échéance à une tâche.
+- Associer une échéance à un membre du foyer.
+- Définir une date d’échéance.
+- Définir une récurrence :
+  - Unique.
+  - Hebdomadaire.
+  - Mensuelle.
+  - Trimestrielle.
+  - Annuelle.
+  - Personnalisée.
+- Définir plusieurs rappels :
+  - 60 jours avant.
+  - 30 jours avant.
+  - 7 jours avant.
+  - 1 jour avant.
+  - Le jour même.
+- Modifier ou supprimer une échéance.
+- Marquer une échéance comme traitée.
+- Repousser une échéance.
+- Afficher les échéances en liste, calendrier ou timeline.
+- Filtrer par catégorie, statut, membre du foyer ou urgence.
+- Afficher les échéances en retard.
+- Afficher les échéances urgentes.
+
+Champs d’une échéance :
+- Titre.
+- Description.
+- Catégorie.
+- Date d’échéance.
+- Récurrence.
+- Rappels.
+- Statut.
+- Priorité.
+- Document associé.
+- Tâche associée.
+- Responsable.
+- Niveau de confidentialité.
+- Foyer associé ou non.
+
+Règles :
+- Une échéance en retard doit rester visible jusqu’à être traitée ou reportée.
+- Une échéance récurrente doit générer automatiquement l’occurrence suivante après validation.
+- Les rappels doivent être personnalisables.
+- Les notifications ne doivent pas révéler le contenu sensible d’un document.
+
+---
+
+### Module 6 : Abonnements
+
+Crée un module de suivi des abonnements.
+
+Fonctionnalités :
+- Ajouter un abonnement manuellement.
+- Enregistrer :
+  - Nom.
+  - Catégorie.
+  - Montant.
+  - Devise.
+  - Fréquence : mensuelle, annuelle, trimestrielle.
+  - Date du prochain prélèvement.
+  - Moyen de paiement.
+  - Statut.
+  - Notes.
+  - Document associé.
+- Calculer automatiquement :
+  - Coût mensuel équivalent.
+  - Coût annuel.
+  - Total des abonnements actifs.
+- Afficher les prochains prélèvements.
+- Envoyer une alerte avant le prélèvement.
+- Marquer un abonnement comme :
+  - Actif.
+  - À résilier.
+  - Résilié.
+  - À vérifier.
+- Générer un modèle de courrier de résiliation.
+- Suivre une demande de résiliation :
+  - À envoyer.
+  - Envoyée.
+  - En attente de réponse.
+  - Confirmée.
+  - Refusée.
+
+Règles :
+- Le coût mensuel équivalent doit être calculé correctement.
+- Un abonnement annuel de 120 € correspond à 10 € par mois.
+- Un abonnement trimestriel de 45 € correspond à 15 € par mois.
+- L’utilisateur doit pouvoir modifier ou supprimer un abonnement.
+- La détection bancaire automatique est exclue du MVP.
+
+---
+
+### Module 7 : Tâches et checklists
+
+Crée un module de tâches familiales et personnelles.
+
+Fonctionnalités :
+- Créer une tâche.
+- Ajouter une description.
+- Définir une échéance.
+- Attribuer la tâche à un membre du foyer.
+- Créer des sous-tâches.
+- Créer une checklist.
+- Marquer une tâche comme terminée.
+- Repousser une tâche.
+- Supprimer une tâche.
+- Filtrer par :
+  - Aujourd’hui.
+  - Cette semaine.
+  - En retard.
+  - Terminées.
+  - Par membre.
+  - Par catégorie.
+- Associer une tâche à un document ou une échéance.
+- Créer des modèles de checklists :
+  - Déménagement.
+  - Rentrée scolaire.
+  - Voyage.
+  - Assurance.
+  - Impôts.
+  - Naissance.
+  - Changement d’adresse.
+  - Renouvellement de documents.
+
+Champs d’une tâche :
+- Titre.
+- Description.
+- Catégorie.
+- Date d’échéance.
+- Priorité.
+- Responsable.
+- Statut.
+- Sous-tâches.
+- Document associé.
+- Échéance associée.
+- Niveau de confidentialité.
+
+---
+
+### Module 8 : Espace familial
+
+Crée un espace familial sécurisé.
+
+Fonctionnalités :
+- Créer un foyer.
+- Nommer le foyer.
+- Inviter un membre par lien sécurisé ou code d’invitation.
+- Gérer les rôles :
+  - Propriétaire.
+  - Administrateur.
+  - Membre.
+  - Invité.
+- Partager sélectivement :
+  - Un document.
+  - Une échéance.
+  - Une tâche.
+  - Un abonnement.
+- Garder certains éléments privés.
+- Attribuer une tâche à un membre.
+- Voir un journal d’activité :
+  - « Sophie a ajouté une facture. »
+  - « Marc a créé une échéance. »
+  - « Léa a terminé une tâche. »
+- Retirer un membre du foyer.
+- Quitter un foyer.
+- Supprimer un foyer.
+
+Règles :
+- Un utilisateur peut appartenir à plusieurs foyers.
+- Un document privé ne doit jamais être visible par les autres membres.
+- Le partage doit toujours être explicite.
+- Les permissions doivent être contrôlées côté serveur.
+- La suppression d’un membre ne doit pas supprimer ses documents privés.
+
+---
+
+### Module 9 : Assistant IA
+
+Crée un assistant IA intégré, prudent et utile.
+
+Fonctionnalités :
+- Chat avec l’assistant.
+- Poser des questions sur les documents et échéances.
+- Exemples de questions :
+  - « Quand expire mon assurance auto ? »
+  - « Quels documents dois-je renouveler ce mois-ci ? »
+  - « Quels abonnements puis-je résilier ? »
+  - « Prépare-moi un courrier de résiliation pour mon abonnement. »
+  - « Quelles tâches dois-je faire cette semaine ? »
+- Résumer un document.
+- Extraire des informations clés.
+- Proposer une catégorie.
+- Proposer une date d’expiration.
+- Proposer des tâches.
+- Générer un modèle de courrier.
+- Suggérer une checklist.
+- Expliquer une échéance ou un document en langage simple.
+
+Règles importantes :
+- L’IA ne doit jamais supprimer ou modifier un document sans validation explicite.
+- L’IA doit indiquer lorsqu’une information est incertaine.
+- L’IA doit proposer une action, mais l’utilisateur doit confirmer.
+- L’IA ne doit pas donner de conseil juridique, fiscal ou médical définitif.
+- L’IA doit respecter les permissions de l’utilisateur et du foyer.
+- L’IA ne doit pas accéder aux documents privés d’un autre membre du foyer.
+- Les appels IA doivent passer par le backend, jamais directement depuis l’application mobile.
+- Les clés API ne doivent jamais être exposées dans l’application.
+
+---
+
+### Module 10 : Modèles de courriers
+
+Crée une bibliothèque de modèles de courriers.
+
+Modèles à inclure :
+- Résiliation d’abonnement.
+- Résiliation d’assurance.
+- Réclamation.
+- Demande de duplicata.
+- Contestation de facture.
+- Changement d’adresse.
+- Demande de rendez-vous.
+- Demande de régularisation.
+- Demande de remboursement.
+- Opposition à un prélèvement.
+- Demande d’attestation.
+
+Fonctionnalités :
+- Choisir un modèle.
+- Remplir automatiquement les champs disponibles.
+- Modifier le texte.
+- Générer un PDF.
+- Enregistrer le courrier comme document.
+- Associer le courrier à une échéance ou un abonnement.
+- Copier le texte.
+- Partager par e-mail ou messagerie.
+
+Règles :
+- Les modèles doivent être neutres, clairs et personnalisables.
+- L’application ne doit pas prétendre fournir un conseil juridique.
+- L’utilisateur doit pouvoir modifier tous les champs.
+
+---
+
+### Module 11 : Notifications
+
+Crée un système de notifications fiable.
+
+Types de notifications :
+- Rappel d’échéance.
+- Document expirant.
+- Abonnement à renouveler.
+- Tâche en retard.
+- Tâche assignée.
+- Invitation au foyer.
+- Nouveau document partagé.
+- Résumé hebdomadaire.
+- Alerte de sécurité.
+
+Paramètres :
+- Activer ou désactiver chaque type de notification.
+- Choisir l’heure des rappels.
+- Recevoir un résumé quotidien ou hebdomadaire.
+- Activer un mode silencieux.
+- Désactiver temporairement les notifications.
+
+Règles :
+- Les notifications doivent être utiles, pas envahissantes.
+- Le texte ne doit pas révéler de données sensibles.
+- Exemple autorisé : « Une échéance importante arrive dans 7 jours. »
+- Exemple interdit : « Votre contrat d’assurance AXA expire le 12/12/2026. »
+- L’utilisateur doit pouvoir configurer les rappels par catégorie.
+
+---
+
+### Module 12 : Recherche universelle
+
+Crée une recherche globale.
+
+L’utilisateur doit pouvoir rechercher :
+- Documents.
+- Échéances.
+- Tâches.
+- Abonnements.
+- Notes.
+- Tags.
+- Contenu OCR.
+- Membres du foyer.
+
+Fonctionnalités :
+- Recherche instantanée.
+- Filtres par catégorie.
+- Filtres par date.
+- Filtres par statut.
+- Filtres par membre.
+- Historique des recherches récentes.
+- Suggestions de recherche.
+- Résultats groupés par type.
+
+---
+
+### Module 13 : Sécurité et confidentialité
+
+La sécurité est une priorité absolue.
+
+Fonctionnalités :
+- Code PIN.
+- Face ID.
+- Empreinte digitale.
+- Verrouillage automatique après inactivité.
+- Déconnexion manuelle.
+- Chiffrement des documents.
+- Chiffrement des communications.
+- Contrôle d’accès par utilisateur et foyer.
+- Protection contre les accès non autorisés.
+- Journalisation des actions sensibles.
+- Possibilité de révoquer les sessions actives.
+- Export des données.
+- Suppression du compte.
+- Politique de confidentialité accessible.
+- Conditions générales accessibles.
+
+Règles :
+- Ne jamais stocker de mot de passe en clair.
+- Ne jamais exposer de clé API dans le code client.
+- Ne jamais autoriser un utilisateur à accéder aux données d’un autre foyer.
+- Ne jamais envoyer de document sensible dans une notification.
+- Toute action sensible doit être confirmée :
+  - Suppression définitive.
+  - Partage d’un document.
+  - Invitation d’un membre.
+  - Export de données.
+  - Suppression du compte.
+
+---
+
+### Module 14 : Abonnement premium
+
+Crée un modèle freemium.
+
+Offre gratuite :
+- Jusqu’à 50 documents.
+- 3 catégories personnalisées.
+- Rappels de base.
+- 1 foyer.
+- Scan de documents.
+- OCR de base.
+- Tâches et échéances.
+
+Offre Premium individuelle :
+- Documents illimités.
+- OCR avancé.
+- Assistant IA avancé.
+- Modèles de courriers illimités.
+- Export PDF.
+- Historique des versions.
+- Rappels avancés.
+
+Offre Premium famille :
+- Jusqu’à 5 membres.
+- Partage avancé.
+- Espace familial complet.
+- Historique d’activité.
+- Documents illimités.
+- Assistant IA avancé.
+
+Prix indicatifs :
+- Premium individuel : 4,99 € à 7,99 € par mois.
+- Premium famille : 9,99 € à 14,99 € par mois.
+- Réduction annuelle : 20 à 30 %.
+
+Règles :
+- La sécurité, le chiffrement, le contrôle des accès et la suppression des données doivent rester gratuits.
+- L’abonnement doit être géré via les stores Apple et Google.
+- Prévoir une période d’essai gratuite.
+- Prévoir une restauration des achats.
+- Prévoir la gestion des désabonnements.
+
+---
+
+## 5. ÉCRANS À CRÉER
+
+Crée les écrans suivants :
+
+1. Splash screen.
+2. Onboarding.
+3. Inscription.
+4. Connexion.
+5. Réinitialisation du mot de passe.
+6. Accueil / Tableau de bord.
+7. Documents.
+8. Détail d’un document.
+9. Scan de document.
+10. Création ou modification de document.
+11. Échéances.
+12. Calendrier des échéances.
+13. Création ou modification d’une échéance.
+14. Abonnements.
+15. Détail d’un abonnement.
+16. Tâches.
+17. Détail d’une tâche.
+18. Checklists.
+19. Espace familial.
+20. Membres du foyer.
+21. Invitation d’un membre.
+22. Assistant IA.
+23. Modèles de courriers.
+24. Recherche universelle.
+25. Profil.
+26. Paramètres.
+27. Notifications.
+28. Abonnement premium.
+29. Politique de confidentialité.
+30. Conditions générales.
+31. Support et aide.
+32. Suppression du compte.
+33. Export des données.
+
+---
+
+## 6. DONNÉES À STOCKER
+
+Crée les entités suivantes :
+
+### Utilisateur
+- ID.
+- E-mail.
+- Nom.
+- Avatar.
+- Mot de passe haché.
+- Préférences.
+- Date de création.
+- Statut du compte.
+- Abonnement.
+
+### Foyer
+- ID.
+- Nom.
+- Propriétaire.
+- Membres.
+- Date de création.
+
+### Membre du foyer
+- ID utilisateur.
+- ID foyer.
+- Rôle.
+- Statut.
+- Date d’ajout.
+
+### Document
+- ID.
+- Propriétaire.
+- Foyer.
+- Titre.
+- Catégorie.
+- Type.
+- Fichier.
+- Texte OCR.
+- Date du document.
+- Date d’expiration.
+- Organisme.
+- Numéro de référence.
+- Montant.
+- Tags.
+- Notes.
+- Confidentialité.
+- Statut.
+- Historique des versions.
+
+### Échéance
+- ID.
+- Titre.
+- Description.
+- Catégorie.
+- Date.
+- Récurrence.
+- Rappels.
+- Statut.
+- Priorité.
+- Document associé.
+- Tâche associée.
+- Responsable.
+- Foyer.
+- Confidentialité.
+
+### Abonnement
+- ID.
+- Nom.
+- Catégorie.
+- Montant.
+- Devise.
+- Fréquence.
+- Prochaine échéance.
+- Moyen de paiement.
+- Statut.
+- Notes.
+- Document associé.
+
+### Tâche
+- ID.
+- Titre.
+- Description.
+- Catégorie.
+- Date.
+- Priorité.
+- Responsable.
+- Statut.
+- Sous-tâches.
+- Document associé.
+- Échéance associée.
+- Foyer.
+
+### Notification
+- ID.
+- Utilisateur.
+- Type.
+- Titre.
+- Message.
+- Date d’envoi.
+- Statut.
+- Référence à l’objet concerné.
+
+### Conversation IA
+- ID.
+- Utilisateur.
+- Messages.
+- Documents consultés.
+- Contexte.
+- Date.
+- Coût éventuel.
+
+---
+
+## 7. RÈGLES MÉTIER
+
+- Un utilisateur peut créer un compte sans créer de foyer.
+- Un foyer peut contenir plusieurs membres.
+- Un document est privé par défaut.
+- Une échéance peut être privée ou partagée.
+- Une tâche peut être personnelle ou partagée.
+- Un abonnement peut être personnel ou partagé.
+- Une notification ne doit jamais contenir de donnée sensible en clair.
+- Une échéance récurrente doit créer automatiquement l’occurrence suivante.
+- Un document expiré doit être signalé, mais pas supprimé automatiquement.
+- L’IA doit toujours demander confirmation avant une action sensible.
+- L’utilisateur doit pouvoir exporter ses données.
+- L’utilisateur doit pouvoir supprimer son compte et ses données.
+- Les données doivent être minimisées.
+- Les accès doivent être contrôlés côté serveur.
+
+---
+
+## 8. TECHNOLOGIES À UTILISER
+
+Utilise si possible :
+
+- **Expo React Native** pour l’application mobile.
+- **TypeScript** pour le code.
+- **Expo Router** pour la navigation.
+- **Supabase** pour :
+  - Authentification.
+  - PostgreSQL.
+  - Stockage des fichiers.
+  - Edge Functions.
+  - Row Level Security.
+- **PostgreSQL** comme base de données.
+- **Supabase Storage** pour les documents.
+- **Google ML Kit** pour l’OCR.
+- **Expo Notifications** et **Firebase Cloud Messaging** pour les notifications.
+- **OpenAI ou Anthropic** via backend sécurisé pour l’IA.
+- **RevenueCat** pour les abonnements.
+- **Sentry** pour le suivi des erreurs.
+- **PostHog** ou **Firebase Analytics** pour l’analytique.
+- **EAS Build** pour les builds et déploiements.
+
+Ne stocke jamais de clé API dans l’application mobile.
+Tous les appels sensibles doivent passer par le backend.
+
+---
+
+## 9. DESIGN
+
+Crée une interface :
+- Moderne.
+- Claire.
+- Rassurante.
+- Minimaliste.
+- Accessible.
+- Adaptée aux mobiles.
+- Compatible mode sombre.
+- Avec des boutons larges.
+- Avec une typographie lisible.
+- Avec des couleurs apaisantes.
+- Avec des messages simples et humains.
+
+Évite :
+- Les écrans surchargés.
+- Le jargon administratif.
+- Les notifications agressives.
+- Les formulaires trop longs.
+- Les couleurs agressives.
+
+La langue de l’interface est le français.
+
+---
+
+## 10. LIVRABLES ATTENDUS
+
+Génère :
+
+1. L’architecture complète de l’application.
+2. Le modèle de données SQL complet.
+3. Les politiques de sécurité Row Level Security.
+4. Les écrans et la navigation.
+5. Les composants UI réutilisables.
+6. Les formulaires avec validations.
+7. Les workflows complets.
+8. Le module de scan et OCR.
+9. Le module d’échéances et notifications.
+10. Le module d’abonnements.
+11. Le module familial.
+12. L’assistant IA.
+13. Les modèles de courriers.
+14. Le système d’abonnement premium.
+15. Les tests fonctionnels.
+16. La documentation technique.
+17. Un plan de déploiement.
+18. Une liste des évolutions futures.
+
+---
+
+## 11. CRITÈRES DE RÉUSSITE
+
+L’application est réussie si :
+
+- Un utilisateur peut créer un compte en moins de 2 minutes.
+- Un utilisateur peut ajouter son premier document en moins de 3 minutes.
+- Un utilisateur peut créer une échéance et recevoir un rappel.
+- Un utilisateur peut rechercher un document par titre ou contenu OCR.
+- Un utilisateur peut partager une échéance avec un membre du foyer.
+- Un utilisateur ne peut pas accéder aux documents privés d’un autre membre.
+- L’assistant IA peut répondre à une question sur une échéance.
+- L’assistant IA ne peut pas modifier ou supprimer un document sans confirmation.
+- Les documents sont chiffrés.
+- Les notifications sont fiables et non intrusives.
+- L’application fonctionne partiellement hors ligne.
+- L’utilisateur peut exporter ou supprimer ses données.
+- L’application est prête à être publiée sur l’App Store et Google Play.
+
+Commence par générer :
+1. L’architecture technique.
+2. Le modèle de données.
+3. Les écrans et la navigation.
+4. Les fonctionnalités du MVP.
+5. Les règles de sécurité.
+6. Le plan de développement par étapes.
+
+Ne génère pas de code incomplet.
+Ne crée pas de fonctionnalité hors du périmètre du MVP.
+Priorise la sécurité, la simplicité, la fiabilité des rappels et l’expérience utilisateur.

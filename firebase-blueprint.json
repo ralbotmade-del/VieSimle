@@ -1,0 +1,291 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Profil utilisateur VieSimple isolé par UID.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "UID Firebase Auth de l'utilisateur" },
+        "displayName": { "type": "string", "description": "Nom complet affiché" },
+        "email": { "type": "string", "description": "Adresse e-mail" },
+        "profileType": { "type": "string", "enum": ["solo", "couple", "family", "roommates"] },
+        "planTier": { "type": "string", "enum": ["free", "premium_individual", "premium_family"] },
+        "onboardingCompleted": { "type": "boolean" },
+        "activeHouseholdId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "FieldValue.serverTimestamp()" }
+      },
+      "required": ["userId", "displayName", "email", "profileType", "planTier", "onboardingCompleted", "createdAt", "updatedAt"]
+    },
+    "Household": {
+      "title": "Household",
+      "description": "Foyer familial ou colocation avec partage sélectif.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "inviteCode": { "type": "string" },
+        "lastInviteCode": { "type": "string" },
+        "memberUids": { "type": "array" },
+        "adminUids": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "name", "inviteCode", "memberUids", "adminUids", "createdAt", "updatedAt"]
+    },
+    "HouseholdInvite": {
+      "title": "HouseholdInvite",
+      "description": "Code d'invitation sécurisé vers un foyer.",
+      "type": "object",
+      "properties": {
+        "householdId": { "type": "string" },
+        "householdName": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["householdId", "householdName", "ownerId", "createdAt"]
+    },
+    "HouseholdMember": {
+      "title": "HouseholdMember",
+      "description": "Membre rattaché à un foyer avec rôle.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "householdId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["owner", "admin", "member", "guest"] },
+        "status": { "type": "string", "enum": ["active"] },
+        "memberUids": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "householdId", "displayName", "role", "status", "memberUids", "createdAt", "updatedAt"]
+    },
+    "VaultDocument": {
+      "title": "VaultDocument",
+      "description": "Document sécurisé dans le coffre-fort documentaire.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "householdId": { "type": "string" },
+        "visibility": { "type": "string", "enum": ["private", "household"] },
+        "sharedWithUids": { "type": "array" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "docType": { "type": "string" },
+        "folder": { "type": "string" },
+        "docDate": { "type": "string" },
+        "expirationDate": { "type": "string" },
+        "issuer": { "type": "string" },
+        "referenceNumber": { "type": "string" },
+        "amount": { "type": "number" },
+        "notes": { "type": "string" },
+        "tags": { "type": "array" },
+        "confidentiality": { "type": "string", "enum": ["standard", "sensitive"] },
+        "status": { "type": "string", "enum": ["active", "expired", "to_renew", "archived"] },
+        "favorite": { "type": "boolean" },
+        "ocrText": { "type": "string" },
+        "ocrConfidence": { "type": "string", "enum": ["high", "medium", "low", "manual"] },
+        "localFileUri": { "type": "string" },
+        "versionNumber": { "type": "integer" },
+        "versionHistory": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "ownerName", "householdId", "visibility", "sharedWithUids", "title", "category", "docType", "folder", "docDate", "expirationDate", "issuer", "referenceNumber", "amount", "notes", "tags", "confidentiality", "status", "favorite", "ocrText", "ocrConfidence", "localFileUri", "versionNumber", "versionHistory", "createdAt", "updatedAt"]
+    },
+    "Deadline": {
+      "title": "Deadline",
+      "description": "Échéance administrative ou familiale avec rappels.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "householdId": { "type": "string" },
+        "visibility": { "type": "string", "enum": ["private", "household"] },
+        "sharedWithUids": { "type": "array" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "recurrence": { "type": "string", "enum": ["none", "weekly", "monthly", "quarterly", "yearly", "custom"] },
+        "customRecurrenceDays": { "type": "integer" },
+        "reminders": { "type": "array" },
+        "status": { "type": "string", "enum": ["pending", "done", "postponed"] },
+        "priority": { "type": "string", "enum": ["low", "medium", "high", "urgent"] },
+        "linkedDocumentId": { "type": "string" },
+        "linkedTaskId": { "type": "string" },
+        "assigneeUid": { "type": "string" },
+        "assigneeName": { "type": "string" },
+        "confidentiality": { "type": "string", "enum": ["standard", "sensitive"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "householdId", "visibility", "sharedWithUids", "title", "description", "category", "dueDate", "recurrence", "customRecurrenceDays", "reminders", "status", "priority", "linkedDocumentId", "linkedTaskId", "assigneeUid", "assigneeName", "confidentiality", "createdAt", "updatedAt"]
+    },
+    "SubscriptionItem": {
+      "title": "SubscriptionItem",
+      "description": "Abonnement récurrent suivi avec coût mensuel équivalent.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "householdId": { "type": "string" },
+        "visibility": { "type": "string", "enum": ["private", "household"] },
+        "sharedWithUids": { "type": "array" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string", "enum": ["EUR", "USD", "CHF", "GBP"] },
+        "frequency": { "type": "string", "enum": ["monthly", "quarterly", "yearly"] },
+        "nextBillingDate": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "to_cancel", "cancelled", "to_verify"] },
+        "cancellationStatus": { "type": "string", "enum": ["none", "to_send", "sent", "awaiting_reply", "confirmed", "refused"] },
+        "notes": { "type": "string" },
+        "linkedDocumentId": { "type": "string" },
+        "alertDaysBefore": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "householdId", "visibility", "sharedWithUids", "name", "category", "amount", "currency", "frequency", "nextBillingDate", "paymentMethod", "status", "cancellationStatus", "notes", "linkedDocumentId", "alertDaysBefore", "createdAt", "updatedAt"]
+    },
+    "HouseholdTask": {
+      "title": "HouseholdTask",
+      "description": "Tâche personnelle ou partagée avec sous-tâches.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "householdId": { "type": "string" },
+        "visibility": { "type": "string", "enum": ["private", "household"] },
+        "sharedWithUids": { "type": "array" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "priority": { "type": "string", "enum": ["low", "medium", "high"] },
+        "assigneeUid": { "type": "string" },
+        "assigneeName": { "type": "string" },
+        "status": { "type": "string", "enum": ["todo", "done"] },
+        "subtasks": { "type": "array" },
+        "checklistTemplate": { "type": "string" },
+        "linkedDocumentId": { "type": "string" },
+        "linkedDeadlineId": { "type": "string" },
+        "confidentiality": { "type": "string", "enum": ["standard", "sensitive"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "householdId", "visibility", "sharedWithUids", "title", "description", "category", "dueDate", "priority", "assigneeUid", "assigneeName", "status", "subtasks", "checklistTemplate", "linkedDocumentId", "linkedDeadlineId", "confidentiality", "createdAt", "updatedAt"]
+    },
+    "HouseholdActivity": {
+      "title": "HouseholdActivity",
+      "description": "Journal d'activité partagé d'un foyer.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "actorName": { "type": "string" },
+        "householdId": { "type": "string" },
+        "sharedWithUids": { "type": "array" },
+        "message": { "type": "string" },
+        "actionType": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "actorName", "householdId", "sharedWithUids", "message", "actionType", "createdAt"]
+    },
+    "SecurityLog": {
+      "title": "SecurityLog",
+      "description": "Journal de sécurité privé des actions sensibles.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "action": { "type": "string" },
+        "detail": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "action", "detail", "createdAt"]
+    },
+    "AiMessageRecord": {
+      "title": "AiMessageRecord",
+      "description": "Message de conversation avec l'assistant IA VieSimple.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "sender": { "type": "string", "enum": ["user", "assistant"] },
+        "text": { "type": "string" },
+        "proposedAction": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "sender", "text", "proposedAction", "createdAt"]
+    },
+    "FcmDeviceToken": {
+      "title": "FcmDeviceToken",
+      "description": "Jeton FCM d'appareil et compteurs anonymisés de rappels sans aucune donnée sensible.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "token": { "type": "string" },
+        "platform": { "type": "string", "enum": ["android"] },
+        "privacyMode": { "type": "string", "enum": ["strict_no_pii"] },
+        "notifDeadlines": { "type": "boolean" },
+        "notifTasks": { "type": "boolean" },
+        "notifQuietMode": { "type": "boolean" },
+        "notifHour": { "type": "integer" },
+        "upcomingDeadlinesCount": { "type": "integer" },
+        "overdueTasksCount": { "type": "integer" },
+        "nextDeadlineDate": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "token", "platform", "privacyMode", "notifDeadlines", "notifTasks", "notifQuietMode", "notifHour", "upcomingDeadlinesCount", "overdueTasksCount", "nextDeadlineDate", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/user_profiles/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Profil privé de chaque utilisateur."
+    },
+    "/households/{householdId}": {
+      "schema": { "$ref": "#/entities/Household" },
+      "description": "Foyers familiaux ou colocations."
+    },
+    "/household_invites/{inviteCode}": {
+      "schema": { "$ref": "#/entities/HouseholdInvite" },
+      "description": "Codes d'invitation vers les foyers."
+    },
+    "/households/{householdId}/members/{memberUid}": {
+      "schema": { "$ref": "#/entities/HouseholdMember" },
+      "description": "Membres et rôles d'un foyer."
+    },
+    "/vault_documents/{docId}": {
+      "schema": { "$ref": "#/entities/VaultDocument" },
+      "description": "Documents du coffre-fort (privés par défaut ou partagés avec le foyer)."
+    },
+    "/deadlines/{deadlineId}": {
+      "schema": { "$ref": "#/entities/Deadline" },
+      "description": "Échéances et rappels."
+    },
+    "/subscriptions/{subId}": {
+      "schema": { "$ref": "#/entities/SubscriptionItem" },
+      "description": "Abonnements récurrents."
+    },
+    "/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/HouseholdTask" },
+      "description": "Tâches et checklists."
+    },
+    "/household_activities/{activityId}": {
+      "schema": { "$ref": "#/entities/HouseholdActivity" },
+      "description": "Journal d'activité du foyer."
+    },
+    "/users/{userId}/security_logs/{logId}": {
+      "schema": { "$ref": "#/entities/SecurityLog" },
+      "description": "Journal d'audit des actions sensibles de l'utilisateur."
+    },
+    "/users/{userId}/ai_conversations/{msgId}": {
+      "schema": { "$ref": "#/entities/AiMessageRecord" },
+      "description": "Historique des échanges avec l'assistant IA."
+    },
+    "/users/{userId}/fcm_tokens/{deviceId}": {
+      "schema": { "$ref": "#/entities/FcmDeviceToken" },
+      "description": "Jetons FCM et préférences de rappels sans données sensibles."
+    }
+  }
+}

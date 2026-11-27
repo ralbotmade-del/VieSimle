@@ -1,0 +1,37 @@
+package com.example.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+// Light Palette - Warm Editorial French Sanctuary (Cream, Forest Sage, Terracotta)
+val CreamBackground = Color(0xFFFAF7F2)
+val WarmWhiteSurface = Color(0xFFFFFFFF)
+val WarmSandSurfaceVariant = Color(0xFFF1ECE4)
+val ForestSagePrimary = Color(0xFF1B4D3E)
+val SageContainer = Color(0xFFD6EAE2)
+val DeepSageText = Color(0xFF0B2920)
+val EucalyptusSecondary = Color(0xFF52796F)
+val EucalyptusContainer = Color(0xFFDCE8E3)
+val TerracottaTertiary = Color(0xFFC85A3F)
+val TerracottaContainer = Color(0xFFFADAD2)
+val WarmInk = Color(0xFF1C211E)
+val MutedSlate = Color(0xFF5C6660)
+val WarmOutline = Color(0xFFD5CFC4)
+val SubtleOutline = Color(0xFFE8E2D8)
+val UrgentRed = Color(0xFFBA1A1A)
+val UrgentRedContainer = Color(0xFFFFDAD6)
+val AmberWarning = Color(0xFFB76E00)
+val AmberWarningContainer = Color(0xFFFFECCC)
+
+// Dark Palette - Deep Charcoal Sage
+val DarkSageBackground = Color(0xFF111715)
+val DarkSageSurface = Color(0xFF19211E)
+val DarkSageSurfaceVariant = Color(0xFF242E2A)
+val LightMintPrimary = Color(0xFF88C9B0)
+val DarkForestOnPrimary = Color(0xFF072D22)
+val DarkSageContainer = Color(0xFF1F4A3C)
+val LightSageText = Color(0xFFC3ECE0)
+val SoftEucalyptus = Color(0xFFA4C3B2)
+val SoftTerracotta = Color(0xFFF0967E)
+val DarkInkText = Color(0xFFEDF2EE)
+val DarkMutedSlate = Color(0xFFA9B5AE)
+val DarkOutline = Color(0xFF3B4742)

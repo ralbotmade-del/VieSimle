@@ -1,0 +1,549 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isValidSharedScope(data) {
+      return data.visibility in ['private', 'household'] &&
+             data.householdId is string && data.householdId.size() <= 128 &&
+             data.sharedWithUids is list &&
+             data.sharedWithUids.size() >= 1 &&
+             data.sharedWithUids.size() <= 10 &&
+             data.sharedWithUids[0] is string &&
+             data.userId in data.sharedWithUids &&
+             (
+               (data.visibility == 'private' && data.sharedWithUids.size() == 1 && data.sharedWithUids[0] == data.userId) ||
+               (data.visibility == 'household' && data.householdId.size() >= 1)
+             );
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+             data.email is string && data.email.size() <= 160 &&
+             data.profileType in ['solo', 'couple', 'family', 'roommates'] &&
+             data.planTier in ['free', 'premium_individual', 'premium_family'] &&
+             data.onboardingCompleted is bool &&
+             (!('activeHouseholdId' in data) || (data.activeHouseholdId is string && data.activeHouseholdId.size() <= 128)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidHousehold(data) {
+      return data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+             data.inviteCode is string && data.inviteCode.size() >= 6 && data.inviteCode.size() <= 16 &&
+             (!('lastInviteCode' in data) || (data.lastInviteCode is string && data.lastInviteCode.size() <= 16)) &&
+             data.memberUids is list && data.memberUids.size() >= 1 && data.memberUids.size() <= 10 &&
+             data.memberUids[0] is string &&
+             data.adminUids is list && data.adminUids.size() >= 1 && data.adminUids.size() <= 10 &&
+             data.adminUids[0] is string &&
+             data.ownerId in data.memberUids &&
+             data.ownerId in data.adminUids &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidHouseholdInvite(data) {
+      return data.householdId is string && data.householdId.size() >= 1 && data.householdId.size() <= 128 &&
+             data.householdName is string && data.householdName.size() >= 1 && data.householdName.size() <= 80 &&
+             data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 &&
+             isValidTimestamp(data.createdAt);
+    }
+
+    function isValidHouseholdMember(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.householdId is string && data.householdId.size() >= 1 && data.householdId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+             data.role in ['owner', 'admin', 'member', 'guest'] &&
+             data.status in ['active'] &&
+             data.memberUids is list && data.memberUids.size() >= 1 && data.memberUids.size() <= 10 &&
+             data.memberUids[0] is string &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidVaultDocument(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.ownerName is string && data.ownerName.size() >= 1 && data.ownerName.size() <= 80 &&
+             isValidSharedScope(data) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 140 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 50 &&
+             data.docType is string && data.docType.size() <= 60 &&
+             data.folder is string && data.folder.size() <= 60 &&
+             data.docDate is string && data.docDate.size() <= 20 &&
+             data.expirationDate is string && data.expirationDate.size() <= 20 &&
+             data.issuer is string && data.issuer.size() <= 100 &&
+             data.referenceNumber is string && data.referenceNumber.size() <= 80 &&
+             (data.amount is float || data.amount is int) && data.amount >= 0 &&
+             data.notes is string && data.notes.size() <= 2000 &&
+             data.tags is list && data.tags.size() <= 10 && (data.tags.size() == 0 || data.tags[0] is string) &&
+             data.confidentiality in ['standard', 'sensitive'] &&
+             data.status in ['active', 'expired', 'to_renew', 'archived'] &&
+             data.favorite is bool &&
+             data.ocrText is string && data.ocrText.size() <= 15000 &&
+             data.ocrConfidence in ['high', 'medium', 'low', 'manual'] &&
+             data.localFileUri is string && data.localFileUri.size() <= 500 &&
+             data.versionNumber is int && data.versionNumber >= 1 && data.versionNumber <= 100 &&
+             data.versionHistory is list && data.versionHistory.size() <= 20 && (data.versionHistory.size() == 0 || data.versionHistory[0] is string) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidDeadline(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             isValidSharedScope(data) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 140 &&
+             data.description is string && data.description.size() <= 1000 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 50 &&
+             data.dueDate is string && data.dueDate.size() >= 8 && data.dueDate.size() <= 20 &&
+             data.recurrence in ['none', 'weekly', 'monthly', 'quarterly', 'yearly', 'custom'] &&
+             data.customRecurrenceDays is int && data.customRecurrenceDays >= 0 && data.customRecurrenceDays <= 3650 &&
+             data.reminders is list && data.reminders.size() <= 10 && (data.reminders.size() == 0 || data.reminders[0] is int) &&
+             data.status in ['pending', 'done', 'postponed'] &&
+             data.priority in ['low', 'medium', 'high', 'urgent'] &&
+             data.linkedDocumentId is string && data.linkedDocumentId.size() <= 128 &&
+             data.linkedTaskId is string && data.linkedTaskId.size() <= 128 &&
+             data.assigneeUid is string && data.assigneeUid.size() <= 128 &&
+             data.assigneeName is string && data.assigneeName.size() <= 80 &&
+             data.confidentiality in ['standard', 'sensitive'] &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidSubscription(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             isValidSharedScope(data) &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 50 &&
+             (data.amount is float || data.amount is int) && data.amount >= 0 &&
+             data.currency in ['EUR', 'USD', 'CHF', 'GBP'] &&
+             data.frequency in ['monthly', 'quarterly', 'yearly'] &&
+             data.nextBillingDate is string && data.nextBillingDate.size() >= 8 && data.nextBillingDate.size() <= 20 &&
+             data.paymentMethod is string && data.paymentMethod.size() <= 60 &&
+             data.status in ['active', 'to_cancel', 'cancelled', 'to_verify'] &&
+             data.cancellationStatus in ['none', 'to_send', 'sent', 'awaiting_reply', 'confirmed', 'refused'] &&
+             data.notes is string && data.notes.size() <= 1000 &&
+             data.linkedDocumentId is string && data.linkedDocumentId.size() <= 128 &&
+             data.alertDaysBefore is int && data.alertDaysBefore >= 0 && data.alertDaysBefore <= 60 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidTask(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             isValidSharedScope(data) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 140 &&
+             data.description is string && data.description.size() <= 1000 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 50 &&
+             data.dueDate is string && data.dueDate.size() <= 20 &&
+             data.priority in ['low', 'medium', 'high'] &&
+             data.assigneeUid is string && data.assigneeUid.size() <= 128 &&
+             data.assigneeName is string && data.assigneeName.size() <= 80 &&
+             data.status in ['todo', 'done'] &&
+             data.subtasks is list && data.subtasks.size() <= 30 && (data.subtasks.size() == 0 || data.subtasks[0] is string) &&
+             data.checklistTemplate is string && data.checklistTemplate.size() <= 60 &&
+             data.linkedDocumentId is string && data.linkedDocumentId.size() <= 128 &&
+             data.linkedDeadlineId is string && data.linkedDeadlineId.size() <= 128 &&
+             data.confidentiality in ['standard', 'sensitive'] &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidActivity(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.actorName is string && data.actorName.size() >= 1 && data.actorName.size() <= 80 &&
+             data.householdId is string && data.householdId.size() >= 1 && data.householdId.size() <= 128 &&
+             data.sharedWithUids is list && data.sharedWithUids.size() >= 1 && data.sharedWithUids.size() <= 10 &&
+             data.sharedWithUids[0] is string &&
+             data.message is string && data.message.size() >= 1 && data.message.size() <= 200 &&
+             data.actionType is string && data.actionType.size() >= 1 && data.actionType.size() <= 40 &&
+             isValidTimestamp(data.createdAt);
+    }
+
+    function isValidSecurityLog(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.action is string && data.action.size() >= 1 && data.action.size() <= 80 &&
+             data.detail is string && data.detail.size() <= 240 &&
+             isValidTimestamp(data.createdAt);
+    }
+
+    function isValidAiMessage(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.sender in ['user', 'assistant'] &&
+             data.text is string && data.text.size() >= 1 && data.text.size() <= 8000 &&
+             data.proposedAction is string && data.proposedAction.size() <= 240 &&
+             isValidTimestamp(data.createdAt);
+    }
+
+    function isValidFcmDeviceToken(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.token is string && data.token.size() >= 10 && data.token.size() <= 512 &&
+             data.platform in ['android'] &&
+             data.privacyMode in ['strict_no_pii'] &&
+             data.notifDeadlines is bool &&
+             data.notifTasks is bool &&
+             data.notifQuietMode is bool &&
+             data.notifHour is int && data.notifHour >= 0 && data.notifHour <= 23 &&
+             data.upcomingDeadlinesCount is int && data.upcomingDeadlinesCount >= 0 && data.upcomingDeadlinesCount <= 500 &&
+             data.overdueTasksCount is int && data.overdueTasksCount >= 0 && data.overdueTasksCount <= 500 &&
+             data.nextDeadlineDate is string && data.nextDeadlineDate.size() <= 20 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    // 1. User Profiles (strictly private to owner)
+    match /user_profiles/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if isSignedIn() && request.auth.uid == userId;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'email', 'profileType', 'planTier', 'onboardingCompleted', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'email', 'profileType', 'planTier', 'onboardingCompleted', 'activeHouseholdId', 'createdAt', 'updatedAt']) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'profileType', 'planTier', 'onboardingCompleted', 'activeHouseholdId', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    // 2. Households
+    match /households/{householdId} {
+      allow get: if isSignedIn() && isValidId(householdId) && request.auth.uid in existing().memberUids;
+      allow list: if isSignedIn() && request.auth.uid in resource.data.memberUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(householdId) &&
+                       incoming().ownerId == request.auth.uid &&
+                       incoming().keys().hasAll(['ownerId', 'name', 'inviteCode', 'memberUids', 'adminUids', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['ownerId', 'name', 'inviteCode', 'lastInviteCode', 'memberUids', 'adminUids', 'createdAt', 'updatedAt']) &&
+                       isValidHousehold(incoming()) &&
+                       incoming().memberUids.size() == 1 &&
+                       incoming().memberUids[0] == request.auth.uid &&
+                       incoming().adminUids.size() == 1 &&
+                       incoming().adminUids[0] == request.auth.uid;
+
+      allow update: if isSignedIn() &&
+                       isValidId(householdId) &&
+                       isValidHousehold(incoming()) &&
+                       incoming().ownerId == existing().ownerId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         // Owner or admin managing household
+                         (
+                           request.auth.uid in existing().adminUids &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['name', 'inviteCode', 'memberUids', 'adminUids', 'updatedAt'])
+                         ) ||
+                         // Joining with valid inviteCode
+                         (
+                           incoming().diff(existing()).affectedKeys().hasOnly(['memberUids', 'lastInviteCode', 'updatedAt']) &&
+                           'lastInviteCode' in incoming() &&
+                           incoming().lastInviteCode == existing().inviteCode &&
+                           !(request.auth.uid in existing().memberUids) &&
+                           request.auth.uid in incoming().memberUids &&
+                           incoming().memberUids.hasAll(existing().memberUids) &&
+                           incoming().memberUids.size() == existing().memberUids.size() + 1
+                         ) ||
+                         // Non-owner member leaving household
+                         (
+                           incoming().diff(existing()).affectedKeys().hasOnly(['memberUids', 'adminUids', 'updatedAt']) &&
+                           request.auth.uid != existing().ownerId &&
+                           request.auth.uid in existing().memberUids &&
+                           !(request.auth.uid in incoming().memberUids) &&
+                           !(request.auth.uid in incoming().adminUids) &&
+                           existing().memberUids.hasAll(incoming().memberUids) &&
+                           incoming().memberUids.size() == existing().memberUids.size() - 1
+                         )
+                       );
+
+      allow delete: if isSignedIn() && isValidId(householdId) && existing().ownerId == request.auth.uid;
+
+      match /members/{memberUid} {
+        allow get: if isSignedIn() && isValidId(householdId) && isValidId(memberUid) &&
+                      (request.auth.uid == memberUid || request.auth.uid in existing().memberUids);
+        allow list: if isSignedIn() && request.auth.uid in resource.data.memberUids;
+
+        allow create: if isSignedIn() &&
+                         isValidId(householdId) &&
+                         isValidId(memberUid) &&
+                         isValidHouseholdMember(incoming()) &&
+                         incoming().userId == memberUid &&
+                         incoming().householdId == householdId &&
+                         incoming().keys().hasAll(['userId', 'householdId', 'displayName', 'role', 'status', 'memberUids', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'householdId', 'displayName', 'role', 'status', 'memberUids', 'createdAt', 'updatedAt']) &&
+                         exists(/databases/$(database)/documents/households/$(householdId)) &&
+                         request.auth.uid in get(/databases/$(database)/documents/households/$(householdId)).data.memberUids &&
+                         (
+                           request.auth.uid == memberUid ||
+                           request.auth.uid in get(/databases/$(database)/documents/households/$(householdId)).data.adminUids
+                         ) &&
+                         (
+                           incoming().role != 'owner' ||
+                           get(/databases/$(database)/documents/households/$(householdId)).data.ownerId == memberUid
+                         );
+
+        allow update: if isSignedIn() &&
+                         isValidId(householdId) &&
+                         isValidId(memberUid) &&
+                         isValidHouseholdMember(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().householdId == existing().householdId &&
+                         incoming().createdAt == existing().createdAt &&
+                         exists(/databases/$(database)/documents/households/$(householdId)) &&
+                         (
+                           (
+                             request.auth.uid in get(/databases/$(database)/documents/households/$(householdId)).data.adminUids &&
+                             incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'role', 'status', 'memberUids', 'updatedAt'])
+                           ) ||
+                           (
+                             request.auth.uid in get(/databases/$(database)/documents/households/$(householdId)).data.memberUids &&
+                             incoming().diff(existing()).affectedKeys().hasOnly(['memberUids', 'updatedAt'])
+                           )
+                         );
+
+        allow delete: if isSignedIn() &&
+                         isValidId(householdId) &&
+                         isValidId(memberUid) &&
+                         (
+                           request.auth.uid == memberUid ||
+                           (
+                             exists(/databases/$(database)/documents/households/$(householdId)) &&
+                             request.auth.uid in get(/databases/$(database)/documents/households/$(householdId)).data.adminUids
+                           )
+                         );
+      }
+    }
+
+    // 3. Household Invites (lookup by exact code only, no listing)
+    match /household_invites/{inviteCode} {
+      allow get: if isSignedIn() && isValidId(inviteCode);
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+                       isValidId(inviteCode) &&
+                       incoming().ownerId == request.auth.uid &&
+                       incoming().keys().hasAll(['householdId', 'householdName', 'ownerId', 'createdAt']) &&
+                       incoming().keys().hasOnly(['householdId', 'householdName', 'ownerId', 'createdAt']) &&
+                       isValidHouseholdInvite(incoming()) &&
+                       exists(/databases/$(database)/documents/households/$(incoming().householdId));
+
+      allow update: if false;
+      allow delete: if isSignedIn() && isValidId(inviteCode) && existing().ownerId == request.auth.uid;
+    }
+
+    // 4. Vault Documents (private by default, explicit selective household sharing)
+    match /vault_documents/{docId} {
+      allow get: if isSignedIn() && isValidId(docId) &&
+                    (existing().userId == request.auth.uid || (existing().visibility == 'household' && request.auth.uid in existing().sharedWithUids));
+      allow list: if isSignedIn() && request.auth.uid in resource.data.sharedWithUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(docId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'ownerName', 'householdId', 'visibility', 'sharedWithUids', 'title', 'category', 'docType', 'folder', 'docDate', 'expirationDate', 'issuer', 'referenceNumber', 'amount', 'notes', 'tags', 'confidentiality', 'status', 'favorite', 'ocrText', 'ocrConfidence', 'localFileUri', 'versionNumber', 'versionHistory', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'ownerName', 'householdId', 'visibility', 'sharedWithUids', 'title', 'category', 'docType', 'folder', 'docDate', 'expirationDate', 'issuer', 'referenceNumber', 'amount', 'notes', 'tags', 'confidentiality', 'status', 'favorite', 'ocrText', 'ocrConfidence', 'localFileUri', 'versionNumber', 'versionHistory', 'createdAt', 'updatedAt']) &&
+                       isValidVaultDocument(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(docId) &&
+                       isValidVaultDocument(incoming()) &&
+                       existing().userId == request.auth.uid &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['householdId', 'visibility', 'sharedWithUids', 'title', 'category', 'docType', 'folder', 'docDate', 'expirationDate', 'issuer', 'referenceNumber', 'amount', 'notes', 'tags', 'confidentiality', 'status', 'favorite', 'ocrText', 'ocrConfidence', 'localFileUri', 'versionNumber', 'versionHistory', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(docId) && existing().userId == request.auth.uid;
+    }
+
+    // 5. Deadlines
+    match /deadlines/{deadlineId} {
+      allow get: if isSignedIn() && isValidId(deadlineId) &&
+                    (existing().userId == request.auth.uid || (existing().visibility == 'household' && request.auth.uid in existing().sharedWithUids));
+      allow list: if isSignedIn() && request.auth.uid in resource.data.sharedWithUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(deadlineId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'householdId', 'visibility', 'sharedWithUids', 'title', 'description', 'category', 'dueDate', 'recurrence', 'customRecurrenceDays', 'reminders', 'status', 'priority', 'linkedDocumentId', 'linkedTaskId', 'assigneeUid', 'assigneeName', 'confidentiality', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'householdId', 'visibility', 'sharedWithUids', 'title', 'description', 'category', 'dueDate', 'recurrence', 'customRecurrenceDays', 'reminders', 'status', 'priority', 'linkedDocumentId', 'linkedTaskId', 'assigneeUid', 'assigneeName', 'confidentiality', 'createdAt', 'updatedAt']) &&
+                       isValidDeadline(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(deadlineId) &&
+                       isValidDeadline(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         (
+                           existing().userId == request.auth.uid &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['householdId', 'visibility', 'sharedWithUids', 'title', 'description', 'category', 'dueDate', 'recurrence', 'customRecurrenceDays', 'reminders', 'status', 'priority', 'linkedDocumentId', 'linkedTaskId', 'assigneeUid', 'assigneeName', 'confidentiality', 'updatedAt'])
+                         ) ||
+                         (
+                           existing().visibility == 'household' &&
+                           request.auth.uid in existing().sharedWithUids &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'dueDate', 'updatedAt'])
+                         )
+                       );
+
+      allow delete: if isSignedIn() && isValidId(deadlineId) && existing().userId == request.auth.uid;
+    }
+
+    // 6. Subscriptions
+    match /subscriptions/{subId} {
+      allow get: if isSignedIn() && isValidId(subId) &&
+                    (existing().userId == request.auth.uid || (existing().visibility == 'household' && request.auth.uid in existing().sharedWithUids));
+      allow list: if isSignedIn() && request.auth.uid in resource.data.sharedWithUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(subId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'householdId', 'visibility', 'sharedWithUids', 'name', 'category', 'amount', 'currency', 'frequency', 'nextBillingDate', 'paymentMethod', 'status', 'cancellationStatus', 'notes', 'linkedDocumentId', 'alertDaysBefore', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'householdId', 'visibility', 'sharedWithUids', 'name', 'category', 'amount', 'currency', 'frequency', 'nextBillingDate', 'paymentMethod', 'status', 'cancellationStatus', 'notes', 'linkedDocumentId', 'alertDaysBefore', 'createdAt', 'updatedAt']) &&
+                       isValidSubscription(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(subId) &&
+                       isValidSubscription(incoming()) &&
+                       existing().userId == request.auth.uid &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['householdId', 'visibility', 'sharedWithUids', 'name', 'category', 'amount', 'currency', 'frequency', 'nextBillingDate', 'paymentMethod', 'status', 'cancellationStatus', 'notes', 'linkedDocumentId', 'alertDaysBefore', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(subId) && existing().userId == request.auth.uid;
+    }
+
+    // 7. Household Tasks
+    match /tasks/{taskId} {
+      allow get: if isSignedIn() && isValidId(taskId) &&
+                    (existing().userId == request.auth.uid || (existing().visibility == 'household' && request.auth.uid in existing().sharedWithUids));
+      allow list: if isSignedIn() && request.auth.uid in resource.data.sharedWithUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(taskId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'householdId', 'visibility', 'sharedWithUids', 'title', 'description', 'category', 'dueDate', 'priority', 'assigneeUid', 'assigneeName', 'status', 'subtasks', 'checklistTemplate', 'linkedDocumentId', 'linkedDeadlineId', 'confidentiality', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'householdId', 'visibility', 'sharedWithUids', 'title', 'description', 'category', 'dueDate', 'priority', 'assigneeUid', 'assigneeName', 'status', 'subtasks', 'checklistTemplate', 'linkedDocumentId', 'linkedDeadlineId', 'confidentiality', 'createdAt', 'updatedAt']) &&
+                       isValidTask(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(taskId) &&
+                       isValidTask(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         (
+                           existing().userId == request.auth.uid &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['householdId', 'visibility', 'sharedWithUids', 'title', 'description', 'category', 'dueDate', 'priority', 'assigneeUid', 'assigneeName', 'status', 'subtasks', 'checklistTemplate', 'linkedDocumentId', 'linkedDeadlineId', 'confidentiality', 'updatedAt'])
+                         ) ||
+                         (
+                           existing().visibility == 'household' &&
+                           request.auth.uid in existing().sharedWithUids &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'subtasks', 'dueDate', 'updatedAt'])
+                         )
+                       );
+
+      allow delete: if isSignedIn() && isValidId(taskId) && existing().userId == request.auth.uid;
+    }
+
+    // 8. Household Activity Log
+    match /household_activities/{activityId} {
+      allow get: if isSignedIn() && isValidId(activityId) && request.auth.uid in existing().sharedWithUids;
+      allow list: if isSignedIn() && request.auth.uid in resource.data.sharedWithUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(activityId) &&
+                       incoming().userId == request.auth.uid &&
+                       request.auth.uid in incoming().sharedWithUids &&
+                       incoming().keys().hasAll(['userId', 'actorName', 'householdId', 'sharedWithUids', 'message', 'actionType', 'createdAt']) &&
+                       incoming().keys().hasOnly(['userId', 'actorName', 'householdId', 'sharedWithUids', 'message', 'actionType', 'createdAt']) &&
+                       isValidActivity(incoming());
+
+      allow update, delete: if false;
+    }
+
+    // 9. User-scoped Security Logs & AI Conversations
+    match /users/{userId} {
+      allow read, write: if false;
+
+      match /security_logs/{logId} {
+        allow get: if isSignedIn() && isValidId(logId) && request.auth.uid == userId;
+        allow list: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() &&
+                         isValidId(logId) &&
+                         request.auth.uid == userId &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'action', 'detail', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'action', 'detail', 'createdAt']) &&
+                         isValidSecurityLog(incoming());
+        allow update, delete: if false;
+      }
+
+      match /ai_conversations/{msgId} {
+        allow get: if isSignedIn() && isValidId(msgId) && request.auth.uid == userId;
+        allow list: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() &&
+                         isValidId(msgId) &&
+                         request.auth.uid == userId &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'sender', 'text', 'proposedAction', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'sender', 'text', 'proposedAction', 'createdAt']) &&
+                         isValidAiMessage(incoming());
+        allow update: if false;
+        allow delete: if isSignedIn() && isValidId(msgId) && request.auth.uid == userId;
+      }
+
+      match /fcm_tokens/{deviceId} {
+        allow get: if isSignedIn() && isValidId(deviceId) && request.auth.uid == userId;
+        allow list: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() &&
+                         isValidId(deviceId) &&
+                         request.auth.uid == userId &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'token', 'platform', 'privacyMode', 'notifDeadlines', 'notifTasks', 'notifQuietMode', 'notifHour', 'upcomingDeadlinesCount', 'overdueTasksCount', 'nextDeadlineDate', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'token', 'platform', 'privacyMode', 'notifDeadlines', 'notifTasks', 'notifQuietMode', 'notifHour', 'upcomingDeadlinesCount', 'overdueTasksCount', 'nextDeadlineDate', 'createdAt', 'updatedAt']) &&
+                         isValidFcmDeviceToken(incoming());
+        allow update: if isSignedIn() &&
+                         isValidId(deviceId) &&
+                         request.auth.uid == userId &&
+                         isValidFcmDeviceToken(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['token', 'platform', 'privacyMode', 'notifDeadlines', 'notifTasks', 'notifQuietMode', 'notifHour', 'upcomingDeadlinesCount', 'overdueTasksCount', 'nextDeadlineDate', 'updatedAt']);
+        allow delete: if isSignedIn() && isValidId(deviceId) && request.auth.uid == userId;
+      }
+    }
+  }
+}

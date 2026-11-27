@@ -1,0 +1,114 @@
+<resources>
+    <string name="app_name">VieSimple</string>
+    <string name="app_tagline">Never forget, never lose a paper, and always know what to do next.</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_vault">Vault</string>
+    <string name="nav_deadlines">Deadlines</string>
+    <string name="nav_tasks">Tasks</string>
+    <string name="nav_more">More</string>
+
+    <string name="action_scan">Scan</string>
+    <string name="action_scan_sub">Photo &amp; OCR</string>
+    <string name="action_ai">AI Assistant</string>
+    <string name="action_ai_sub">Help &amp; tips</string>
+    <string name="action_letters_library">Pre-filled PDF letter library</string>
+    <string name="action_search">Search</string>
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="action_back">Back</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="action_clear">Clear</string>
+
+    <string name="sign_in_google">Continue directly with Google</string>
+    <string name="auth_checking_session">Securely verifying your session…</string>
+    <string name="auth_no_password_hint">Passwordless access: your personal VieSimple account is created automatically on Google sign-in, then protected by fingerprint / biometrics.</string>
+    <string name="auth_accept_legal">I accept the Terms of Service and Privacy Policy.</string>
+    <string name="auth_terms">Terms of Service</string>
+    <string name="auth_privacy">Privacy Policy</string>
+    <string name="auth_learn_security">Learn more about your data security</string>
+
+    <string name="search_placeholder">Search document, task, subscription, tag…</string>
+    <string name="this_week_title">This week</string>
+    <string name="this_week_action">Schedule</string>
+    <string name="metric_docs">Documents</string>
+    <string name="metric_upcoming">Upcoming</string>
+    <string name="metric_urgent">Urgent</string>
+    <string name="metric_subs">Subs / mo</string>
+
+    <string name="offline_cache_title">Offline mode · Local Room cache active</string>
+    <string name="offline_cache_summary">Local Room cache: %1$d doc(s), %2$d task(s), %3$d subscription(s).</string>
+
+    <string name="subscriptions_title">Subscriptions</string>
+    <string name="subscriptions_subtitle">Track recurring monthly subscriptions, costs, and next renewal dates (cached locally with Room).</string>
+    <string name="subscriptions_monthly_cost">Monthly run rate</string>
+    <string name="subscriptions_annual_cost">Estimated annual total</string>
+    <string name="subscriptions_add">Add subscription</string>
+    <string name="subscriptions_empty_title">No subscriptions saved</string>
+    <string name="subscriptions_empty_desc">Add your recurring subscriptions (streaming, mobile plan, insurance, gym) to track monthly costs and upcoming renewal dates.</string>
+    <string name="subscriptions_filter_all">All (%1$d)</string>
+    <string name="subscriptions_filter_monthly">Monthly recurring (%1$d)</string>
+    <string name="subscriptions_filter_active">Active</string>
+    <string name="subscriptions_filter_to_cancel">To cancel</string>
+    <string name="subscriptions_filter_paused">Paused</string>
+    <string name="subscriptions_filter_cancelled">Cancelled</string>
+    <string name="subscriptions_next_renewal">Next renewal: %1$s</string>
+    <string name="subscriptions_cancel_letter">Cancellation letter</string>
+    <string name="subscriptions_room_badge">Room offline · %1$d subscription(s)</string>
+
+    <string name="more_account_security">Account &amp; Security</string>
+    <string name="more_subs_title">Subscriptions &amp; cancellations</string>
+    <string name="more_subs_sub">Monthly tracking, renewals, and letters</string>
+    <string name="more_household_title">Household space</string>
+    <string name="more_household_sub">Members, roles, and activity</string>
+    <string name="more_ai_title">VieSimple AI Assistant</string>
+    <string name="more_ai_sub">Questions, summaries, suggested actions</string>
+    <string name="more_letters_sub">Pre-filled PDFs, cancellations, taxes…</string>
+    <string name="more_search_title">Universal search</string>
+    <string name="more_search_sub">Documents, tasks, subscriptions, and tags</string>
+    <string name="more_profile_title">My profile</string>
+    <string name="more_profile_sub">Details and active household</string>
+    <string name="more_settings_title">Security, language &amp; theme</string>
+    <string name="more_settings_sub">PIN, biometrics, language &amp; Room cache</string>
+    <string name="more_notif_title">Reminders &amp; notifications</string>
+    <string name="more_notif_sub">3-day alerts, FCM &amp; system calendar</string>
+    <string name="more_premium_title">VieSimple Premium plans</string>
+    <string name="more_premium_sub">Free, Individual, or Family</string>
+    <string name="more_support_title">Help, Terms &amp; Privacy</string>
+    <string name="more_support_sub">FAQ and GDPR policy</string>
+    <string name="more_export_title">Export my data (JSON)</string>
+    <string name="more_export_sub">Download a full backup</string>
+    <string name="more_delete_title">Delete my account</string>
+    <string name="more_delete_sub">Permanently erase your data</string>
+
+    <string name="settings_title">Security &amp; Settings</string>
+    <string name="settings_appearance_title">Appearance</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_language_title">App language</string>
+    <string name="settings_language_desc">Choose the display language for VieSimple (applied immediately).</string>
+    <string name="settings_language_system">System</string>
+    <string name="settings_language_updated">Language updated: %1$s</string>
+    <string name="settings_room_title">Offline local cache (Room)</string>
+    <string name="settings_room_summary">%1$d document(s), %2$d task(s), and %3$d subscription(s) stored locally for offline browsing.</string>
+
+    <string name="notif_title">Reminders &amp; Notifications</string>
+    <string name="notif_worker_title">Background worker (WorkManager · Firestore)</string>
+    <string name="notif_worker_default_desc">Periodic check of Firestore administrative deadlines with automatic D-3 alerts (3 days before due date).</string>
+    <string name="notif_worker_run_now">Check deadlines (D-3) now</string>
+
+    <string name="notification_channel_name">VieSimple Reminders</string>
+    <string name="notification_channel_desc">Privacy-safe deadline, document, and task reminders</string>
+    <string name="default_notification_channel_id">viesimple_reminders</string>
+    <string name="safe_notif_deadline_title">VieSimple Reminder</string>
+    <string name="safe_notif_deadline_body">An important administrative deadline is approaching. Open VieSimple to review details.</string>
+    <string name="safe_notif_task_overdue_title">VieSimple Reminder · Tasks</string>
+    <string name="safe_notif_task_overdue_body">One or more tasks are overdue. Open VieSimple to review them.</string>
+    <string name="safe_notif_lockscreen_title">VieSimple</string>
+    <string name="safe_notif_lockscreen_body">New reminder available in your secure space.</string>
+    <string name="safe_notif_fcm_generic_title">VieSimple Reminder</string>
+    <string name="safe_notif_fcm_generic_body">You have a new privacy-safe reminder. Open VieSimple to view it.</string>
+</resources>
