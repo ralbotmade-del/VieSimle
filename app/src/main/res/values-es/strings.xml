@@ -111,4 +111,35 @@
     <string name="safe_notif_lockscreen_body">Nuevo recordatorio disponible en tu espacio seguro.</string>
     <string name="safe_notif_fcm_generic_title">Recordatorio VieSimple</string>
     <string name="safe_notif_fcm_generic_body">Tienes un nuevo recordatorio confidencial. Abre VieSimple para verlo.</string>
+
+    <string name="widget_title">VieSimple · Resumen</string>
+    <string name="widget_description">Consulta rápidamente tu próximo pago de suscripción y el plazo administrativo más cercano.</string>
+    <string name="widget_next_sub">Próxima suscripción</string>
+    <string name="widget_nearest_deadline">Plazo más cercano</string>
+    <string name="widget_no_sub">Sin pagos próximos</string>
+    <string name="widget_no_deadline">Sin plazos pendientes</string>
+    <string name="widget_refresh">Actualizar widget</string>
+    <string name="widget_sign_in_prompt">Inicia sesión en VieSimple para mostrar tus suscripciones y plazos.</string>
+    <string name="widget_due_today">Hoy</string>
+    <string name="widget_due_in_days">D-%1$d</string>
+    <string name="widget_overdue_days">Atrasado %1$dd</string>
+
+    <string name="ai_tagging_title">Categorización y etiquetas IA (Gemini)</string>
+    <string name="ai_tagging_add_placeholder">Añadir etiqueta (ej. Insurance, Tax)</string>
+    <string name="ai_tagging_run_btn">Autocategorizar y etiquetar (Gemini)</string>
+    <string name="ai_tagging_running">Análisis de Gemini en curso…</string>
+
+    <string name="doc_search_firestore_btn">Buscar en Firestore</string>
+    <string name="doc_search_date_all">Todas las fechas</string>
+    <string name="doc_search_date_today">Hoy</string>
+    <string name="doc_search_date_month">Este mes</string>
+    <string name="doc_search_date_year">Este año</string>
+    <string name="doc_search_date_custom">Fecha exacta / rango</string>
+    <string name="doc_search_date_placeholder">Fecha o período (ej. 2026-11, 27/11/2026)</string>
+    <string name="doc_search_date_from">Desde (AAAA-MM-DD)</string>
+    <string name="doc_search_date_to">Hasta (AAAA-MM-DD)</string>
+    <string name="doc_search_results_server">Búsqueda de texto completo Firestore · %1$d resultado(s)</string>
+    <string name="doc_search_results_cache">Búsqueda sin conexión (caché local) · %1$d resultado(s)</string>
+    <string name="doc_search_loading">Consultando Firestore…</string>
+    <string name="doc_search_reset">Restablecer</string>
 </resources>

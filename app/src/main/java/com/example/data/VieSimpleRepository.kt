@@ -22,6 +22,8 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.Source
 import com.google.firebase.firestore.snapshots
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.awaitClose
@@ -34,6 +36,23 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.concurrent.atomic.AtomicBoolean
+
+data class FirestoreDocumentSearchQuery(
+    val keywords: String = "",
+    val category: String? = null,
+    val dateQuery: String = "",
+    val dateFrom: String = "",
+    val dateTo: String = "",
+    val onlyFavorites: Boolean = false
+)
+
+data class FirestoreDocumentSearchResult(
+    val query: FirestoreDocumentSearchQuery,
+    val matches: List<ScoredSearchMatch<VaultDocument>>,
+    val usedServerQuery: Boolean,
+    val appliedFirestoreFilters: List<String>,
+    val fallbackNote: String? = null
+)
 
 class VieSimpleRepository(
     val db: FirebaseFirestore,
@@ -310,6 +329,142 @@ class VieSimpleRepository(
     } catch (e: Exception) {
         handleFirestoreError(e, OperationType.DELETE, "vault_documents/$docId")
         Result.failure(e)
+    }
+
+    suspend fun searchVaultDocumentsFirestore(
+        searchQuery: FirestoreDocumentSearchQuery
+    ): Result<FirestoreDocumentSearchResult> = try {
+        val uid = requireUserId()
+        val appliedFilters = mutableListOf("sharedWithUids")
+        var firestoreQuery: Query = db.collection("vault_documents")
+            .whereArrayContains("sharedWithUids", uid)
+
+        val cleanCategory = searchQuery.category?.trim()?.takeIf { it.isNotBlank() }
+        if (cleanCategory != null) {
+            firestoreQuery = firestoreQuery.whereEqualTo("category", cleanCategory)
+            appliedFilters.add("category")
+        }
+
+        val normFrom = normalizeStartDateIso(searchQuery.dateFrom)
+        val normTo = normalizeEndDateIso(searchQuery.dateTo)
+        if (normFrom.isNotBlank() && normTo.isNotBlank() && normFrom == normTo) {
+            firestoreQuery = firestoreQuery.whereEqualTo("docDate", normFrom)
+            appliedFilters.add("docDate==")
+        } else {
+            if (normFrom.isNotBlank()) {
+                firestoreQuery = firestoreQuery.whereGreaterThanOrEqualTo("docDate", normFrom)
+                appliedFilters.add("docDate>=")
+            }
+            if (normTo.isNotBlank()) {
+                firestoreQuery = firestoreQuery.whereLessThanOrEqualTo("docDate", normTo)
+                appliedFilters.add("docDate<=")
+            }
+        }
+
+        if (searchQuery.onlyFavorites) {
+            firestoreQuery = firestoreQuery.whereEqualTo("favorite", true)
+            appliedFilters.add("favorite")
+        }
+
+        var usedServerQuery = true
+        var fallbackNote: String? = null
+        val sourceDocs: List<VaultDocument> = try {
+            val snap = firestoreQuery.get(Source.DEFAULT).await()
+            snap.toObjects(VaultDocument::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: FirebaseFirestoreException) {
+            if (e.code == FirebaseFirestoreException.Code.FAILED_PRECONDITION && appliedFilters.size > 1) {
+                appliedFilters.clear()
+                appliedFilters.add("sharedWithUids")
+                fallbackNote = "Requête Firestore élargie (filtre combiné appliqué localement)."
+                val baseSnap = db.collection("vault_documents")
+                    .whereArrayContains("sharedWithUids", uid)
+                    .get(Source.DEFAULT)
+                    .await()
+                baseSnap.toObjects(VaultDocument::class.java, DocumentSnapshot.ServerTimestampBehavior.ESTIMATE)
+            } else {
+                handleFirestoreError(e, OperationType.LIST, "vault_documents")
+                val cached = cacheRepo?.getDocumentsOnce(uid)
+                if (cached != null) {
+                    usedServerQuery = false
+                    appliedFilters.clear()
+                    appliedFilters.add("room_cache")
+                    fallbackNote = "Mode hors connexion : résultats issus du cache local."
+                    cached
+                } else {
+                    throw e
+                }
+            }
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.LIST, "vault_documents")
+            val cached = cacheRepo?.getDocumentsOnce(uid)
+            if (cached != null) {
+                usedServerQuery = false
+                appliedFilters.clear()
+                appliedFilters.add("room_cache")
+                fallbackNote = "Hors ligne : résultats issus du cache local."
+                cached
+            } else {
+                throw e
+            }
+        }
+
+        if (usedServerQuery && appliedFilters.size == 1 && sourceDocs.isNotEmpty()) {
+            cacheRepo?.replaceDocuments(uid, sourceDocs)
+        }
+
+        val matches = sourceDocs.mapNotNull { doc ->
+            UniversalSearchEngine.scoreDocumentMatch(
+                doc = doc,
+                query = searchQuery.keywords,
+                selectedCategory = cleanCategory,
+                dateQuery = searchQuery.dateQuery,
+                dateFrom = searchQuery.dateFrom,
+                dateTo = searchQuery.dateTo,
+                onlyFavorites = searchQuery.onlyFavorites
+            )
+        }.sortedWith(
+            compareByDescending<ScoredSearchMatch<VaultDocument>> { it.score }
+                .thenByDescending { it.item.favorite }
+                .thenByDescending { it.item.docDate }
+                .thenBy { UniversalSearchEngine.normalize(it.item.title) }
+        )
+
+        Result.success(
+            FirestoreDocumentSearchResult(
+                query = searchQuery,
+                matches = matches,
+                usedServerQuery = usedServerQuery,
+                appliedFirestoreFilters = appliedFilters.toList(),
+                fallbackNote = fallbackNote
+            )
+        )
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        handleFirestoreError(e, OperationType.LIST, "vault_documents")
+        Result.failure(e)
+    }
+
+    private fun normalizeStartDateIso(raw: String): String {
+        val clean = raw.trim()
+        return when {
+            Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(clean) -> clean
+            Regex("^\\d{4}-\\d{2}$").matches(clean) -> "$clean-01"
+            Regex("^\\d{4}$").matches(clean) -> "$clean-01-01"
+            else -> ""
+        }
+    }
+
+    private fun normalizeEndDateIso(raw: String): String {
+        val clean = raw.trim()
+        return when {
+            Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(clean) -> clean
+            Regex("^\\d{4}-\\d{2}$").matches(clean) -> "$clean-31"
+            Regex("^\\d{4}$").matches(clean) -> "$clean-12-31"
+            else -> ""
+        }
     }
 
     fun observeDeadlines(userId: String): Flow<List<Deadline>> = flow {

@@ -111,4 +111,35 @@
     <string name="safe_notif_lockscreen_body">Nouveau rappel disponible dans votre espace sécurisé.</string>
     <string name="safe_notif_fcm_generic_title">Rappel VieSimple</string>
     <string name="safe_notif_fcm_generic_body">Vous avez un nouveau rappel confidentiel. Ouvrez VieSimple pour le consulter.</string>
+
+    <string name="widget_title">VieSimple · Résumé</string>
+    <string name="widget_description">Affiche le prochain prélèvement d’abonnement et la prochaine échéance administrative.</string>
+    <string name="widget_next_sub">Prochain abonnement</string>
+    <string name="widget_nearest_deadline">Prochaine échéance</string>
+    <string name="widget_no_sub">Aucun abonnement à venir</string>
+    <string name="widget_no_deadline">Aucune échéance en attente</string>
+    <string name="widget_refresh">Actualiser le widget</string>
+    <string name="widget_sign_in_prompt">Connectez-vous à VieSimple pour afficher vos abonnements et échéances.</string>
+    <string name="widget_due_today">Aujourd’hui</string>
+    <string name="widget_due_in_days">J-%1$d</string>
+    <string name="widget_overdue_days">Retard %1$dj</string>
+
+    <string name="ai_tagging_title">Catégorisation &amp; tags IA (Gemini)</string>
+    <string name="ai_tagging_add_placeholder">Ajouter un tag (ex: Insurance, Tax)</string>
+    <string name="ai_tagging_run_btn">Auto-catégoriser &amp; tagger (Gemini)</string>
+    <string name="ai_tagging_running">Analyse Gemini en cours…</string>
+
+    <string name="doc_search_firestore_btn">Recherche Firestore</string>
+    <string name="doc_search_date_all">Toutes dates</string>
+    <string name="doc_search_date_today">Aujourd’hui</string>
+    <string name="doc_search_date_month">Ce mois</string>
+    <string name="doc_search_date_year">Cette année</string>
+    <string name="doc_search_date_custom">Date précise</string>
+    <string name="doc_search_date_placeholder">Date ou période (ex: 2026-11, 27/11/2026)</string>
+    <string name="doc_search_date_from">Du (AAAA-MM-JJ)</string>
+    <string name="doc_search_date_to">Au (AAAA-MM-JJ)</string>
+    <string name="doc_search_results_server">Recherche plein texte Firestore · %1$d résultat(s)</string>
+    <string name="doc_search_results_cache">Recherche hors ligne (cache local) · %1$d résultat(s)</string>
+    <string name="doc_search_loading">Interrogation Firestore en cours…</string>
+    <string name="doc_search_reset">Réinitialiser</string>
 </resources>

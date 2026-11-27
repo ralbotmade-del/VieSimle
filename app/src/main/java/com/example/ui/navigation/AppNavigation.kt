@@ -325,6 +325,8 @@ private fun AuthenticatedAppContent(
     val documentSortMode by vm.documentSortMode.collectAsStateWithLifecycle()
     val offlineCacheStatus by vm.offlineCacheStatus.collectAsStateWithLifecycle()
     val syncedCalendarEventIds by vm.syncedCalendarEventIds.collectAsStateWithLifecycle()
+    val autoTaggingDocId by vm.autoTaggingDocId.collectAsStateWithLifecycle()
+    val firestoreDocSearchState by vm.firestoreDocSearchState.collectAsStateWithLifecycle()
     val isLocked by vm.isLocked.collectAsStateWithLifecycle()
     val isLockStateReady by vm.isLockStateReady.collectAsStateWithLifecycle()
     val actionMessage by vm.actionMessage.collectAsStateWithLifecycle()
@@ -481,6 +483,7 @@ private fun AuthenticatedAppContent(
         if (target.isNotBlank()) {
             when (target) {
                 "deadlines" -> navController.navigate(VieSimpleRoutes.DEADLINES) { launchSingleTop = true }
+                "subscriptions" -> navController.navigate(VieSimpleRoutes.SUBSCRIPTIONS) { launchSingleTop = true }
                 "tasks" -> navController.navigate(VieSimpleRoutes.TASKS) { launchSingleTop = true }
                 "household" -> navController.navigate(VieSimpleRoutes.HOUSEHOLD) { launchSingleTop = true }
                 "settings" -> navController.navigate(VieSimpleRoutes.SETTINGS) { launchSingleTop = true }
@@ -630,6 +633,18 @@ private fun AuthenticatedAppContent(
                             sortMode = documentSortMode,
                             onSortModeChange = vm::setDocumentSortMode,
                             offlineCacheStatus = offlineCacheStatus,
+                            firestoreSearchState = firestoreDocSearchState,
+                            onSearchInFirestore = { keywords, category, dateQuery, dateFrom, dateTo, onlyFav ->
+                                vm.searchDocumentsInFirestore(
+                                    keywords = keywords,
+                                    category = category,
+                                    dateQuery = dateQuery,
+                                    dateFrom = dateFrom,
+                                    dateTo = dateTo,
+                                    onlyFavorites = onlyFav
+                                )
+                            },
+                            onClearFirestoreSearch = vm::clearFirestoreDocumentSearch,
                             onOpenDocument = { id ->
                                 vm.recordDocumentOpened(id)
                                 vm.selectDocument(id)
@@ -678,6 +693,10 @@ private fun AuthenticatedAppContent(
                             },
                             onRetouchPhoto = { d, bmp ->
                                 vm.updateDocumentPhoto(context, d, bmp)
+                            },
+                            isAutoTagging = doc != null && autoTaggingDocId == doc.id,
+                            onAutoCategorizeWithAi = { d ->
+                                vm.autoCategorizeAndTagDocument(d)
                             },
                             onDelete = { id ->
                                 vm.deleteDocument(id) { navController.popBackStack() }
@@ -1015,9 +1034,22 @@ private fun AuthenticatedAppContent(
                         UniversalSearchScreen(
                             results = universalSearchResults,
                             recentSearches = securitySettings.recentSearches,
+                            firestoreDocSearchState = firestoreDocSearchState,
                             onQueryChange = vm::updateSearchQuery,
                             onSelectTab = vm::setSearchTab,
                             onSelectCategory = vm::setSearchCategory,
+                            onDateFiltersChange = vm::setSearchDateFilters,
+                            onTriggerFirestoreDocSearch = {
+                                val f = universalSearchResults.filter
+                                vm.searchDocumentsInFirestore(
+                                    keywords = f.query,
+                                    category = f.selectedCategory,
+                                    dateQuery = f.dateQuery,
+                                    dateFrom = f.dateFrom,
+                                    dateTo = f.dateTo,
+                                    onlyFavorites = f.onlyFavorites
+                                )
+                            },
                             onToggleTag = vm::toggleSearchTag,
                             onToggleActiveOnly = vm::toggleSearchActiveOnly,
                             onToggleHouseholdOnly = vm::toggleSearchHouseholdOnly,

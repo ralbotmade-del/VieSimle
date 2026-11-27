@@ -8,6 +8,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,8 +23,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -30,7 +34,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.AutoFixHigh
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.Clear
+import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.DocumentScanner
@@ -63,6 +71,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -72,6 +81,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -84,18 +94,24 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.R
 import com.example.core.BiometricAuthHelper
 import com.example.core.BiometricCapability
 import com.example.data.DocumentSmartSorter
 import com.example.data.DocumentSortMode
+import com.example.data.FirestoreDocumentSearchResult
 import com.example.data.FrequentTagStat
 import com.example.data.RankedVaultDocument
+import com.example.data.ScoredSearchMatch
 import com.example.data.UniversalSearchEngine
 import com.example.export.PdfGenerator
 import com.example.model.DateUtils
@@ -110,7 +126,21 @@ import com.example.ui.components.VisibilityBadge
 import com.example.ui.viewmodel.OfflineCacheStatus
 import com.example.ui.viewmodel.UiState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+
+private enum class VaultDatePreset {
+    ALL,
+    TODAY,
+    THIS_MONTH,
+    THIS_YEAR,
+    CUSTOM
+}
+
+private data class VaultDisplayItem(
+    val ranked: RankedVaultDocument,
+    val searchMatch: ScoredSearchMatch<VaultDocument>? = null
+)
 
 @Composable
 fun DocumentsVaultScreen(
@@ -120,17 +150,70 @@ fun DocumentsVaultScreen(
     sortMode: DocumentSortMode = DocumentSortMode.SMART_AUTO,
     onSortModeChange: (DocumentSortMode) -> Unit = {},
     offlineCacheStatus: OfflineCacheStatus = OfflineCacheStatus(),
+    firestoreSearchState: UiState<FirestoreDocumentSearchResult>? = null,
+    onSearchInFirestore: (keywords: String, category: String?, dateQuery: String, dateFrom: String, dateTo: String, onlyFavorites: Boolean) -> Unit = { _, _, _, _, _, _ -> },
+    onClearFirestoreSearch: () -> Unit = {},
     onOpenDocument: (String) -> Unit,
     onOpenScan: () -> Unit,
     onAddManualDocument: () -> Unit,
     onOpenLetters: () -> Unit = {},
     onToggleFavorite: (VaultDocument) -> Unit
 ) {
+    val focusManager = LocalFocusManager.current
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var selectedFolder by remember { mutableStateOf<String?>(null) }
     var selectedTagNorm by remember { mutableStateOf<String?>(null) }
     var onlyFavorites by remember { mutableStateOf(false) }
+
+    var datePreset by remember { mutableStateOf(VaultDatePreset.ALL) }
+    var customDateQuery by remember { mutableStateOf("") }
+    var customDateFrom by remember { mutableStateOf("") }
+    var customDateTo by remember { mutableStateOf("") }
+
+    val todayIso = remember { DateUtils.todayIso() }
+    val effectiveDateQuery = if (datePreset == VaultDatePreset.CUSTOM) customDateQuery.trim() else ""
+    val effectiveDateFrom = when (datePreset) {
+        VaultDatePreset.ALL -> ""
+        VaultDatePreset.TODAY -> todayIso
+        VaultDatePreset.THIS_MONTH -> todayIso.take(7)
+        VaultDatePreset.THIS_YEAR -> todayIso.take(4)
+        VaultDatePreset.CUSTOM -> customDateFrom.trim()
+    }
+    val effectiveDateTo = when (datePreset) {
+        VaultDatePreset.ALL -> ""
+        VaultDatePreset.TODAY -> todayIso
+        VaultDatePreset.THIS_MONTH -> todayIso.take(7)
+        VaultDatePreset.THIS_YEAR -> todayIso.take(4)
+        VaultDatePreset.CUSTOM -> customDateTo.trim()
+    }
+    val hasSearchCriteria = searchQuery.isNotBlank() ||
+        selectedCategory != null ||
+        datePreset != VaultDatePreset.ALL ||
+        onlyFavorites
+
+    LaunchedEffect(
+        searchQuery,
+        selectedCategory,
+        effectiveDateQuery,
+        effectiveDateFrom,
+        effectiveDateTo,
+        onlyFavorites
+    ) {
+        if (hasSearchCriteria) {
+            delay(420L)
+            onSearchInFirestore(
+                searchQuery,
+                selectedCategory,
+                effectiveDateQuery,
+                effectiveDateFrom,
+                effectiveDateTo,
+                onlyFavorites
+            )
+        } else {
+            onClearFirestoreSearch()
+        }
+    }
 
     val effectiveState: UiState<List<RankedVaultDocument>> = rankedDocumentsState ?: when (documentsState) {
         is UiState.Loading -> UiState.Loading
@@ -142,29 +225,76 @@ fun DocumentsVaultScreen(
 
     val allRanked = (effectiveState as? UiState.Success)?.data ?: emptyList()
     val allDocs = remember(allRanked) { allRanked.map { it.document } }
+    val rankedById = remember(allRanked) { allRanked.associateBy { it.document.id } }
     val folders = remember(allDocs) { allDocs.map { it.folder.ifBlank { "Général" } }.distinct().sorted() }
     val computedFrequentTags = remember(frequentTags, allDocs) {
         if (frequentTags.isNotEmpty()) frequentTags else DocumentSmartSorter.computeFrequentTags(allDocs, emptyMap())
     }
 
-    val filtered = remember(allRanked, searchQuery, selectedCategory, selectedFolder, selectedTagNorm, onlyFavorites) {
-        allRanked.filter { ranked ->
-            val doc = ranked.document
-            val q = searchQuery.trim().lowercase()
-            val matchesQuery = q.isBlank() ||
-                doc.title.lowercase().contains(q) ||
-                doc.category.lowercase().contains(q) ||
-                doc.issuer.lowercase().contains(q) ||
-                doc.ocrText.lowercase().contains(q) ||
-                doc.tags.any { it.lowercase().contains(q) } ||
-                doc.docDate.contains(q)
-            val matchesCat = selectedCategory == null || doc.category == selectedCategory
-            val matchesFolder = selectedFolder == null || doc.folder.ifBlank { "Général" } == selectedFolder
-            val matchesTag = selectedTagNorm == null || doc.tags.any {
-                UniversalSearchEngine.normalize(it.removePrefix("#")) == selectedTagNorm
+    val firestoreSuccess = firestoreSearchState as? UiState.Success<FirestoreDocumentSearchResult>
+
+    val displayItems: List<VaultDisplayItem> = remember(
+        allRanked,
+        rankedById,
+        firestoreSuccess,
+        hasSearchCriteria,
+        searchQuery,
+        selectedCategory,
+        effectiveDateQuery,
+        effectiveDateFrom,
+        effectiveDateTo,
+        selectedFolder,
+        selectedTagNorm,
+        onlyFavorites
+    ) {
+        if (firestoreSuccess != null && hasSearchCriteria) {
+            firestoreSuccess.data.matches.mapNotNull { match ->
+                val doc = match.item
+                val matchesFolder = selectedFolder == null || doc.folder.ifBlank { "Général" } == selectedFolder
+                val matchesTag = selectedTagNorm == null || doc.tags.any {
+                    UniversalSearchEngine.normalize(it.removePrefix("#")) == selectedTagNorm
+                }
+                if (!matchesFolder || !matchesTag) null
+                else VaultDisplayItem(
+                    ranked = rankedById[doc.id] ?: RankedVaultDocument(
+                        document = doc,
+                        score = match.score.toDouble(),
+                        openCount = 0,
+                        topFrequentTag = doc.tags.firstOrNull(),
+                        reasonBadge = match.matchReasons.firstOrNull()
+                    ),
+                    searchMatch = match
+                )
             }
-            val matchesFav = !onlyFavorites || doc.favorite
-            matchesQuery && matchesCat && matchesFolder && matchesTag && matchesFav
+        } else {
+            val baseMatches = allRanked.mapNotNull { ranked ->
+                val doc = ranked.document
+                val matchesFolder = selectedFolder == null || doc.folder.ifBlank { "Général" } == selectedFolder
+                val matchesTag = selectedTagNorm == null || doc.tags.any {
+                    UniversalSearchEngine.normalize(it.removePrefix("#")) == selectedTagNorm
+                }
+                if (!matchesFolder || !matchesTag) return@mapNotNull null
+
+                if (hasSearchCriteria) {
+                    val scored = UniversalSearchEngine.scoreDocumentMatch(
+                        doc = doc,
+                        query = searchQuery,
+                        selectedCategory = selectedCategory,
+                        dateQuery = effectiveDateQuery,
+                        dateFrom = effectiveDateFrom,
+                        dateTo = effectiveDateTo,
+                        onlyFavorites = onlyFavorites
+                    ) ?: return@mapNotNull null
+                    VaultDisplayItem(ranked = ranked, searchMatch = scored)
+                } else {
+                    VaultDisplayItem(ranked = ranked, searchMatch = null)
+                }
+            }
+            if (searchQuery.isNotBlank()) {
+                baseMatches.sortedByDescending { it.searchMatch?.score ?: 0 }
+            } else {
+                baseMatches
+            }
         }
     }
 
@@ -235,15 +365,219 @@ fun DocumentsVaultScreen(
             }
 
             item {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                    placeholder = { Text("Titre, organisme, tag, date ou texte OCR…") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth().testTag("vault_search_input")
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (searchQuery.isNotBlank()) {
+                                IconButton(
+                                    onClick = { searchQuery = "" },
+                                    modifier = Modifier.minimumInteractiveComponentSize().testTag("vault_search_clear_btn")
+                                ) {
+                                    Icon(Icons.Outlined.Clear, contentDescription = stringResource(R.string.action_clear))
+                                }
+                            }
+                        },
+                        placeholder = { Text("Mots-clés, organisme, tag, date ou texte OCR…") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(
+                            onSearch = {
+                                focusManager.clearFocus()
+                                onSearchInFirestore(
+                                    searchQuery,
+                                    selectedCategory,
+                                    effectiveDateQuery,
+                                    effectiveDateFrom,
+                                    effectiveDateTo,
+                                    onlyFavorites
+                                )
+                            }
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth().testTag("vault_search_input")
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FilledTonalButton(
+                            onClick = {
+                                focusManager.clearFocus()
+                                onSearchInFirestore(
+                                    searchQuery,
+                                    selectedCategory,
+                                    effectiveDateQuery,
+                                    effectiveDateFrom,
+                                    effectiveDateTo,
+                                    onlyFavorites
+                                )
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.minimumInteractiveComponentSize().testTag("vault_firestore_search_btn")
+                        ) {
+                            Icon(Icons.Outlined.CloudDone, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.size(6.dp))
+                            Text(stringResource(R.string.doc_search_firestore_btn), style = MaterialTheme.typography.labelMedium)
+                        }
+
+                        FilterChip(
+                            selected = datePreset == VaultDatePreset.ALL,
+                            onClick = { datePreset = VaultDatePreset.ALL },
+                            label = { Text(stringResource(R.string.doc_search_date_all)) },
+                            modifier = Modifier.testTag("vault_date_all")
+                        )
+                        FilterChip(
+                            selected = datePreset == VaultDatePreset.TODAY,
+                            onClick = {
+                                datePreset = if (datePreset == VaultDatePreset.TODAY) VaultDatePreset.ALL else VaultDatePreset.TODAY
+                            },
+                            leadingIcon = { Icon(Icons.Outlined.CalendarToday, contentDescription = null, modifier = Modifier.size(14.dp)) },
+                            label = { Text(stringResource(R.string.doc_search_date_today)) },
+                            modifier = Modifier.testTag("vault_date_today")
+                        )
+                        FilterChip(
+                            selected = datePreset == VaultDatePreset.THIS_MONTH,
+                            onClick = {
+                                datePreset = if (datePreset == VaultDatePreset.THIS_MONTH) VaultDatePreset.ALL else VaultDatePreset.THIS_MONTH
+                            },
+                            label = { Text(stringResource(R.string.doc_search_date_month)) },
+                            modifier = Modifier.testTag("vault_date_month")
+                        )
+                        FilterChip(
+                            selected = datePreset == VaultDatePreset.THIS_YEAR,
+                            onClick = {
+                                datePreset = if (datePreset == VaultDatePreset.THIS_YEAR) VaultDatePreset.ALL else VaultDatePreset.THIS_YEAR
+                            },
+                            label = { Text(stringResource(R.string.doc_search_date_year)) },
+                            modifier = Modifier.testTag("vault_date_year")
+                        )
+                        FilterChip(
+                            selected = datePreset == VaultDatePreset.CUSTOM,
+                            onClick = {
+                                datePreset = if (datePreset == VaultDatePreset.CUSTOM) VaultDatePreset.ALL else VaultDatePreset.CUSTOM
+                            },
+                            label = { Text(stringResource(R.string.doc_search_date_custom)) },
+                            modifier = Modifier.testTag("vault_date_custom")
+                        )
+                    }
+
+                    AnimatedVisibility(visible = datePreset == VaultDatePreset.CUSTOM) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = customDateQuery,
+                                onValueChange = { customDateQuery = it },
+                                leadingIcon = { Icon(Icons.Outlined.CalendarToday, contentDescription = null) },
+                                placeholder = { Text(stringResource(R.string.doc_search_date_placeholder)) },
+                                singleLine = true,
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier.fillMaxWidth().testTag("vault_custom_date_query")
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = customDateFrom,
+                                    onValueChange = { customDateFrom = it },
+                                    label = { Text(stringResource(R.string.doc_search_date_from)) },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier.weight(1f).testTag("vault_custom_date_from")
+                                )
+                                OutlinedTextField(
+                                    value = customDateTo,
+                                    onValueChange = { customDateTo = it },
+                                    label = { Text(stringResource(R.string.doc_search_date_to)) },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier.weight(1f).testTag("vault_custom_date_to")
+                                )
+                            }
+                        }
+                    }
+
+                    if (firestoreSearchState != null) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().testTag("vault_firestore_status_banner")
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                when (firestoreSearchState) {
+                                    is UiState.Loading -> {
+                                        Text(
+                                            text = stringResource(R.string.doc_search_loading),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                    }
+                                    is UiState.Error -> {
+                                        Text(
+                                            text = firestoreSearchState.message,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                    is UiState.Success -> {
+                                        val res = firestoreSearchState.data
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = if (res.usedServerQuery) {
+                                                        stringResource(R.string.doc_search_results_server, displayItems.size)
+                                                    } else {
+                                                        stringResource(R.string.doc_search_results_cache, displayItems.size)
+                                                    },
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                                )
+                                                Text(
+                                                    text = buildString {
+                                                        append("Filtres : ${res.appliedFirestoreFilters.joinToString(" · ")}")
+                                                        res.fallbackNote?.let { append(" ($it)") }
+                                                    },
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                            TextButton(
+                                                onClick = {
+                                                    searchQuery = ""
+                                                    selectedCategory = null
+                                                    selectedFolder = null
+                                                    selectedTagNorm = null
+                                                    onlyFavorites = false
+                                                    datePreset = VaultDatePreset.ALL
+                                                    customDateQuery = ""
+                                                    customDateFrom = ""
+                                                    customDateTo = ""
+                                                    onClearFirestoreSearch()
+                                                },
+                                                modifier = Modifier.testTag("vault_firestore_search_clear_btn")
+                                            ) {
+                                                Text(stringResource(R.string.doc_search_reset))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // Automatic sorting mode selector (usage frequency + frequent tags)
@@ -347,7 +681,7 @@ fun DocumentsVaultScreen(
                     }
                 }
                 is UiState.Success -> {
-                    if (filtered.isEmpty()) {
+                    if (displayItems.isEmpty()) {
                         item {
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -360,16 +694,42 @@ fun DocumentsVaultScreen(
                                 ) {
                                     Icon(Icons.Outlined.Description, contentDescription = null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
                                     Text("Aucun document trouvé", style = MaterialTheme.typography.titleMedium)
-                                    Text("Scannez ou importez votre premier contrat, facture ou justificatif.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Button(onClick = onOpenScan) {
-                                        Text("Scanner un document")
+                                    Text(
+                                        if (hasSearchCriteria) "Essayez d’élargir vos mots-clés, la date ou la catégorie."
+                                        else "Scannez ou importez votre premier contrat, facture ou justificatif.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    if (hasSearchCriteria) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                searchQuery = ""
+                                                selectedCategory = null
+                                                selectedFolder = null
+                                                selectedTagNorm = null
+                                                onlyFavorites = false
+                                                datePreset = VaultDatePreset.ALL
+                                                customDateQuery = ""
+                                                customDateFrom = ""
+                                                customDateTo = ""
+                                                onClearFirestoreSearch()
+                                            }
+                                        ) {
+                                            Text(stringResource(R.string.doc_search_reset))
+                                        }
+                                    } else {
+                                        Button(onClick = onOpenScan) {
+                                            Text("Scanner un document")
+                                        }
                                     }
                                 }
                             }
                         }
                     } else {
-                        items(filtered, key = { it.document.id }) { ranked ->
+                        items(displayItems, key = { it.ranked.document.id }) { displayItem ->
+                            val ranked = displayItem.ranked
                             val doc = ranked.document
+                            val match = displayItem.searchMatch
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -402,6 +762,7 @@ fun DocumentsVaultScreen(
                                             listOfNotNull(
                                                 doc.category,
                                                 doc.issuer.takeIf { it.isNotBlank() },
+                                                doc.docDate.takeIf { it.isNotBlank() }?.let { DateUtils.formatFrench(it) },
                                                 doc.expirationDate.takeIf { it.isNotBlank() }?.let { "Exp. ${DateUtils.formatFrench(it)}" }
                                             ).joinToString(" · "),
                                             style = MaterialTheme.typography.bodySmall,
@@ -409,6 +770,22 @@ fun DocumentsVaultScreen(
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
+                                        if (!match?.matchedSnippet.isNullOrBlank()) {
+                                            Surface(
+                                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Text(
+                                                    text = match?.matchedSnippet.orEmpty(),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                )
+                                            }
+                                        }
                                         Row(
                                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                                             verticalAlignment = Alignment.CenterVertically
@@ -438,7 +815,11 @@ fun DocumentsVaultScreen(
                                                     }
                                                 }
                                             }
-                                            ranked.reasonBadge?.let { badge ->
+                                            val badgeText = match?.matchReasons?.takeIf { it.isNotEmpty() }
+                                                ?.take(2)
+                                                ?.joinToString(" · ")
+                                                ?: ranked.reasonBadge
+                                            badgeText?.let { badge ->
                                                 Surface(
                                                     color = MaterialTheme.colorScheme.secondaryContainer,
                                                     shape = RoundedCornerShape(8.dp)
@@ -451,6 +832,28 @@ fun DocumentsVaultScreen(
                                                         overflow = TextOverflow.Ellipsis,
                                                         modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                                     )
+                                                }
+                                            }
+                                        }
+                                        if (doc.tags.isNotEmpty()) {
+                                            @OptIn(ExperimentalLayoutApi::class)
+                                            FlowRow(
+                                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                doc.tags.take(3).forEach { tag ->
+                                                    Surface(
+                                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                                        shape = RoundedCornerShape(6.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = "#$tag",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                            maxLines = 1,
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
@@ -492,6 +895,8 @@ fun DocumentDetailScreen(
     onCreateDeadlineFromDoc: (VaultDocument) -> Unit,
     onGenerateLetterFromDoc: (VaultDocument) -> Unit = {},
     onRetouchPhoto: (VaultDocument, Bitmap) -> Unit = { _, _ -> },
+    isAutoTagging: Boolean = false,
+    onAutoCategorizeWithAi: (VaultDocument) -> Unit = {},
     onDelete: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -819,7 +1224,49 @@ fun DocumentDetailScreen(
                     DetailRow("Montant", if (document.amount > 0) "${"%.2f".format(document.amount)} €" else "—")
                     DetailRow("Statut", statusLabel(document.status))
                     if (document.tags.isNotEmpty()) {
-                        DetailRow("Tags", document.tags.joinToString(", "))
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Tags", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            @OptIn(ExperimentalLayoutApi::class)
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                document.tags.forEach { tag ->
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Text(
+                                            text = "#$tag",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (document.userId == currentUserId) {
+                        FilledTonalButton(
+                            onClick = { onAutoCategorizeWithAi(document) },
+                            enabled = !isAutoTagging,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("doc_ai_autotag_btn"),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            if (isAutoTagging) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.size(8.dp))
+                                Text(stringResource(R.string.ai_tagging_running))
+                            } else {
+                                Icon(Icons.Outlined.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.size(8.dp))
+                                Text(stringResource(R.string.ai_tagging_run_btn))
+                            }
+                        }
                     }
                 }
             }

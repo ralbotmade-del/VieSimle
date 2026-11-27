@@ -23,6 +23,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,16 +41,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AddAPhoto
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.AutoFixHigh
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FileOpen
 import androidx.compose.material.icons.outlined.FilterBAndW
 import androidx.compose.material.icons.outlined.Fingerprint
+import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Share
@@ -62,6 +67,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -86,6 +92,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -93,6 +100,7 @@ import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.R
+import com.example.data.AiAssistantRepository
 import com.example.export.PdfGenerator
 import com.example.model.DateUtils
 import com.example.model.Deadline
@@ -822,6 +830,15 @@ fun ScanDocumentScreen(
                     var amountText by remember(extracted) { mutableStateOf(if (extracted.amount > 0) extracted.amount.toString() else "") }
                     var refNum by remember(extracted) { mutableStateOf(extracted.referenceNumber) }
                     var ocrText by remember(extracted) { mutableStateOf(extracted.ocrText) }
+                    var editableTags by remember(extracted, ocrState.isGrayscalePdf) {
+                        mutableStateOf(
+                            AiAssistantRepository.sanitizeTags(
+                                extracted.tags + if (ocrState.isGrayscalePdf) listOf("PDF N&B") else emptyList(),
+                                maxTags = 10
+                            )
+                        )
+                    }
+                    var newTagInput by remember { mutableStateOf("") }
                     var createDeadlineChecked by remember(extracted) { mutableStateOf(extracted.expirationDate.isNotBlank()) }
 
                     if (ocrState.autoSavedToFirestore && ocrState.savedDocumentId != null) {
@@ -939,6 +956,89 @@ fun ScanDocumentScreen(
                                 onSelectCategory = { selected -> if (selected != null) category = selected },
                                 includeAllOption = false
                             )
+                            Surface(
+                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier.fillMaxWidth().testTag("scan_ai_tags_section")
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Outlined.Label,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.ai_tagging_title),
+                                            style = MaterialTheme.typography.titleSmall
+                                        )
+                                    }
+                                    if (extracted.categoryRationale.isNotBlank()) {
+                                        Text(
+                                            text = extracted.categoryRationale,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    @OptIn(ExperimentalLayoutApi::class)
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        editableTags.forEachIndexed { idx, tag ->
+                                            InputChip(
+                                                selected = true,
+                                                onClick = {
+                                                    editableTags = editableTags.filterNot { it.equals(tag, ignoreCase = true) }
+                                                },
+                                                label = { Text("#$tag", style = MaterialTheme.typography.labelMedium) },
+                                                trailingIcon = {
+                                                    Icon(
+                                                        Icons.Outlined.Close,
+                                                        contentDescription = "Retirer $tag",
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
+                                                },
+                                                modifier = Modifier.testTag("scan_ai_tag_$idx")
+                                            )
+                                        }
+                                    }
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = newTagInput,
+                                            onValueChange = { newTagInput = it },
+                                            placeholder = { Text(stringResource(R.string.ai_tagging_add_placeholder)) },
+                                            singleLine = true,
+                                            modifier = Modifier.weight(1f).testTag("scan_add_tag_input")
+                                        )
+                                        FilledTonalButton(
+                                            onClick = {
+                                                val clean = newTagInput.trim().removePrefix("#").trim()
+                                                if (clean.isNotBlank()) {
+                                                    editableTags = AiAssistantRepository.sanitizeTags(editableTags + clean, maxTags = 10)
+                                                    newTagInput = ""
+                                                }
+                                            },
+                                            enabled = newTagInput.isNotBlank(),
+                                            modifier = Modifier.height(48.dp).testTag("scan_add_tag_btn"),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Icon(Icons.Outlined.Add, contentDescription = "Ajouter tag")
+                                        }
+                                    }
+                                }
+                            }
                             OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Titre") }, modifier = Modifier.fillMaxWidth())
                             OutlinedTextField(
                                 value = docType,
@@ -1004,7 +1104,10 @@ fun ScanDocumentScreen(
                                         issuer = issuer.trim(),
                                         referenceNumber = refNum.trim(),
                                         amount = amountText.replace(",", ".").toDoubleOrNull() ?: 0.0,
-                                        tags = (extracted.tags + if (ocrState.isGrayscalePdf) listOf("PDF N&B") else emptyList()).distinct(),
+                                        tags = AiAssistantRepository.sanitizeTags(
+                                            editableTags + if (ocrState.isGrayscalePdf) listOf("PDF N&B") else emptyList(),
+                                            maxTags = 10
+                                        ),
                                         confidentiality = if (markAsSensitive) "sensitive" else "standard",
                                         ocrText = ocrText,
                                         ocrConfidence = extracted.confidence,

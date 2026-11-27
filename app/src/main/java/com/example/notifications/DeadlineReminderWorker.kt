@@ -104,6 +104,17 @@ class DeadlineReminderWorker(
         }
         securityPrefs.setWorkerExecutionStatus(summary)
 
+        val cacheRepo = OfflineCacheRepository(applicationContext)
+        val cachedSubs = runCatching { cacheRepo.getSubscriptionsOnce(uid) }.getOrDefault(emptyList())
+        runCatching {
+            com.example.widget.WidgetSnapshotManager.syncAndUpdateWidget(
+                context = applicationContext,
+                subscriptions = cachedSubs,
+                deadlines = deadlines,
+                isAuthenticated = true
+            )
+        }
+
         if (settings.calendarSyncEnabled && SystemCalendarSyncManager.hasCalendarPermissions(applicationContext)) {
             runCatching {
                 SystemCalendarSyncManager.syncDeadlinesToSystemCalendar(
@@ -111,7 +122,7 @@ class DeadlineReminderWorker(
                     userId = uid,
                     deadlines = deadlines,
                     settings = settings,
-                    cacheRepo = OfflineCacheRepository(applicationContext),
+                    cacheRepo = cacheRepo,
                     securityPrefs = securityPrefs
                 )
             }

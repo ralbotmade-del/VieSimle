@@ -1,13 +1,20 @@
 package com.example
 
 import com.example.core.DocumentUsageStat
+import com.example.data.AiAssistantRepository
 import com.example.data.DocumentSmartSorter
 import com.example.data.DocumentSortMode
+import com.example.data.UniversalSearchEngine
+import com.example.data.UniversalSearchFilterState
 import com.example.data.local.toCachedEntity
+import com.example.model.Deadline
 import com.example.model.HouseholdTask
 import com.example.model.SubscriptionItem
 import com.example.model.VaultDocument
+import com.example.widget.WidgetSummaryCalculator
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -177,5 +184,141 @@ class ExampleUnitTest {
         assertEquals(sub.status, restored.status)
         assertEquals(sub.sharedWithUids, restored.sharedWithUids)
     }
+
+    @Test
+    fun widgetSummaryCalculator_picksNextSubscriptionAndNearestPendingDeadline() {
+        val today = "2026-11-27"
+        val subs = listOf(
+            SubscriptionItem(id = "s_cancelled", name = "Old Gym", amount = 29.0, nextBillingDate = "2026-11-28", status = "cancelled"),
+            SubscriptionItem(id = "s_later", name = "Assurance Auto", amount = 54.0, nextBillingDate = "2026-12-10", status = "active"),
+            SubscriptionItem(id = "s_next", name = "Fibre Orange", amount = 39.99, nextBillingDate = "2026-11-30", status = "active"),
+            SubscriptionItem(id = "s_past", name = "Streaming", amount = 12.99, nextBillingDate = "2026-11-20", status = "active")
+        )
+        val deadlines = listOf(
+            Deadline(id = "d_done", title = "Facture payée", category = "Logement", dueDate = "2026-11-28", status = "done"),
+            Deadline(id = "d_next", title = "Déclaration Taxe Foncière", category = "Impôts", dueDate = "2026-11-29", status = "pending", priority = "high"),
+            Deadline(id = "d_later", title = "Renouvellement Mutuelle", category = "Santé", dueDate = "2026-12-15", status = "pending")
+        )
+
+        val summary = WidgetSummaryCalculator.computeWidgetSummary(
+            subscriptions = subs,
+            deadlines = deadlines,
+            todayIso = today,
+            nowMillis = 12345L,
+            isAuthenticated = true
+        )
+
+        assertTrue(summary.isAuthenticated)
+        assertEquals("s_next", summary.nextSubscription?.id)
+        assertEquals("Fibre Orange", summary.nextSubscription?.name)
+        assertEquals(3L, summary.nextSubscription?.daysUntil)
+
+        assertEquals("d_next", summary.nearestDeadline?.id)
+        assertEquals("Déclaration Taxe Foncière", summary.nearestDeadline?.title)
+        assertEquals(2L, summary.nearestDeadline?.daysUntil)
+
+        val signedOut = WidgetSummaryCalculator.computeWidgetSummary(
+            subscriptions = subs,
+            deadlines = deadlines,
+            todayIso = today,
+            isAuthenticated = false
+        )
+        assertFalse(signedOut.isAuthenticated)
+        assertNull(signedOut.nextSubscription)
+        assertNull(signedOut.nearestDeadline)
+    }
+
+    @Test
+    fun aiTagging_sanitizesDeduplicatesAndCapsToFirestoreRulesLimit() {
+        val raw = listOf("#Insurance", "insurance", "  Bill ", "", "null", "Tax", "MAIF", "2026", "Contrat", "Auto", "PDF", "Extra1", "Extra2")
+        val sanitized = AiAssistantRepository.sanitizeTags(raw, maxTags = 8)
+        assertEquals(listOf("Insurance", "Bill", "Tax", "MAIF", "2026", "Contrat", "Auto", "PDF"), sanitized)
+
+        val merged = AiAssistantRepository.mergeTags(
+            existingTags = listOf("PDF N&B", "bill", "Archive"),
+            aiTags = listOf("Insurance", "Bill", "Tax"),
+            maxTags = 10
+        )
+        assertEquals(listOf("Insurance", "Bill", "Tax", "PDF N&B", "Archive"), merged)
+        assertTrue(merged.size <= 10)
+    }
+
+    @Test
+    fun fullTextDocumentSearch_matchesKeywordsDateRangeAndCategoryWithSnippets() {
+        val docTax = VaultDocument(
+            id = "doc_tax",
+            title = "Avis d'imposition sur le revenu",
+            category = "Impôts",
+            issuer = "DGFiP",
+            docDate = "2026-05-14",
+            tags = listOf("Tax", "2026"),
+            ocrText = "Direction générale des finances publiques. Revenu fiscal de référence 32450 euros."
+        )
+        val docIns = VaultDocument(
+            id = "doc_ins",
+            title = "Attestation habitation",
+            category = "Assurance",
+            issuer = "MAIF",
+            docDate = "2026-11-02",
+            expirationDate = "2027-11-01",
+            tags = listOf("Insurance", "Logement"),
+            ocrText = "Contrat multirisque habitation numéro MH-4490 valable pour le logement principal."
+        )
+        val docBill = VaultDocument(
+            id = "doc_bill",
+            title = "Facture électricité",
+            category = "Logement",
+            issuer = "EDF",
+            docDate = "2025-12-20",
+            tags = listOf("Bill"),
+            ocrText = "Consommation décembre 2025."
+        )
+
+        // 1. Keyword full-text search across OCR text (accent-insensitive)
+        val ocrMatch = UniversalSearchEngine.scoreDocumentMatch(
+            doc = docTax,
+            query = "fiscal reference"
+        )
+        assertTrue(ocrMatch != null)
+        assertTrue(ocrMatch!!.matchReasons.contains("Texte OCR"))
+        assertTrue(ocrMatch.matchedSnippet?.contains("fiscal", ignoreCase = true) == true)
+
+        // 2. Category + Date range filtering
+        val results = UniversalSearchEngine.search(
+            documents = listOf(docTax, docIns, docBill),
+            tasks = emptyList(),
+            subscriptions = emptyList(),
+            deadlines = emptyList(),
+            members = emptyList(),
+            filter = UniversalSearchFilterState(
+                query = "habitation",
+                selectedCategory = "Assurance",
+                dateFrom = "2026-11",
+                dateTo = "2026-11"
+            )
+        )
+        assertEquals(listOf("doc_ins"), results.matchingDocuments.map { it.item.id })
+
+        // 3. Year / partial date query matching
+        assertTrue(
+            UniversalSearchEngine.matchesDateCriteria(
+                primaryIso = "2026-05-14",
+                secondaryIso = "",
+                dateQuery = "2026-05",
+                dateFrom = "",
+                dateTo = ""
+            )
+        )
+        assertFalse(
+            UniversalSearchEngine.matchesDateCriteria(
+                primaryIso = "2025-12-20",
+                secondaryIso = "",
+                dateQuery = "",
+                dateFrom = "2026-01-01",
+                dateTo = "2026-12-31"
+            )
+        )
+    }
 }
+
 

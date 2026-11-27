@@ -24,6 +24,9 @@ data class UniversalSearchFilterState(
     val activeTab: SearchScopeTab = SearchScopeTab.ALL,
     val selectedCategory: String? = null,
     val selectedTags: Set<String> = emptySet(),
+    val dateQuery: String = "",
+    val dateFrom: String = "",
+    val dateTo: String = "",
     val onlyActiveOrOpen: Boolean = false,
     val onlyHouseholdShared: Boolean = false,
     val onlyFavorites: Boolean = false
@@ -32,6 +35,9 @@ data class UniversalSearchFilterState(
         get() = query.isNotBlank() ||
             selectedCategory != null ||
             selectedTags.isNotEmpty() ||
+            dateQuery.isNotBlank() ||
+            dateFrom.isNotBlank() ||
+            dateTo.isNotBlank() ||
             onlyActiveOrOpen ||
             onlyHouseholdShared ||
             onlyFavorites
@@ -131,6 +137,9 @@ object UniversalSearchEngine {
                 normalizedQuery = normalizedQuery,
                 selectedCategory = filter.selectedCategory,
                 selectedTagsNormalized = normalizedSelectedTags,
+                dateQuery = filter.dateQuery,
+                dateFrom = filter.dateFrom,
+                dateTo = filter.dateTo,
                 onlyActive = filter.onlyActiveOrOpen,
                 onlyHousehold = filter.onlyHouseholdShared,
                 onlyFavorites = filter.onlyFavorites
@@ -143,15 +152,19 @@ object UniversalSearchEngine {
             emptyList()
         } else {
             tasks.mapNotNull { task ->
-                scoreTask(
-                    task = task,
-                    tokens = tokens,
-                    normalizedQuery = normalizedQuery,
-                    selectedCategory = filter.selectedCategory,
-                    selectedTagsNormalized = normalizedSelectedTags,
-                    onlyOpen = filter.onlyActiveOrOpen,
-                    onlyHousehold = filter.onlyHouseholdShared
-                )
+                if (!matchesDateCriteria(task.dueDate, "", filter.dateQuery, filter.dateFrom, filter.dateTo)) {
+                    null
+                } else {
+                    scoreTask(
+                        task = task,
+                        tokens = tokens,
+                        normalizedQuery = normalizedQuery,
+                        selectedCategory = filter.selectedCategory,
+                        selectedTagsNormalized = normalizedSelectedTags,
+                        onlyOpen = filter.onlyActiveOrOpen,
+                        onlyHousehold = filter.onlyHouseholdShared
+                    )
+                }
             }.sortedWith(compareByDescending<ScoredSearchMatch<HouseholdTask>> { it.score }
                 .thenBy { it.item.status != "todo" }
                 .thenBy { DateUtils.daysUntil(it.item.dueDate) ?: Long.MAX_VALUE })
@@ -161,15 +174,19 @@ object UniversalSearchEngine {
             emptyList()
         } else {
             subscriptions.mapNotNull { sub ->
-                scoreSubscription(
-                    sub = sub,
-                    tokens = tokens,
-                    normalizedQuery = normalizedQuery,
-                    selectedCategory = filter.selectedCategory,
-                    selectedTagsNormalized = normalizedSelectedTags,
-                    onlyActive = filter.onlyActiveOrOpen,
-                    onlyHousehold = filter.onlyHouseholdShared
-                )
+                if (!matchesDateCriteria(sub.nextBillingDate, "", filter.dateQuery, filter.dateFrom, filter.dateTo)) {
+                    null
+                } else {
+                    scoreSubscription(
+                        sub = sub,
+                        tokens = tokens,
+                        normalizedQuery = normalizedQuery,
+                        selectedCategory = filter.selectedCategory,
+                        selectedTagsNormalized = normalizedSelectedTags,
+                        onlyActive = filter.onlyActiveOrOpen,
+                        onlyHousehold = filter.onlyHouseholdShared
+                    )
+                }
             }.sortedWith(compareByDescending<ScoredSearchMatch<SubscriptionItem>> { it.score }
                 .thenByDescending { it.item.monthlyEquivalent() })
         }
@@ -178,15 +195,19 @@ object UniversalSearchEngine {
             emptyList()
         } else {
             deadlines.mapNotNull { dl ->
-                scoreDeadline(
-                    dl = dl,
-                    tokens = tokens,
-                    normalizedQuery = normalizedQuery,
-                    selectedCategory = filter.selectedCategory,
-                    selectedTagsNormalized = normalizedSelectedTags,
-                    onlyPending = filter.onlyActiveOrOpen,
-                    onlyHousehold = filter.onlyHouseholdShared
-                )
+                if (!matchesDateCriteria(dl.dueDate, "", filter.dateQuery, filter.dateFrom, filter.dateTo)) {
+                    null
+                } else {
+                    scoreDeadline(
+                        dl = dl,
+                        tokens = tokens,
+                        normalizedQuery = normalizedQuery,
+                        selectedCategory = filter.selectedCategory,
+                        selectedTagsNormalized = normalizedSelectedTags,
+                        onlyPending = filter.onlyActiveOrOpen,
+                        onlyHousehold = filter.onlyHouseholdShared
+                    )
+                }
             }.sortedWith(compareByDescending<ScoredSearchMatch<Deadline>> { it.score }
                 .thenBy { it.item.status != "pending" }
                 .thenBy { DateUtils.daysUntil(it.item.dueDate) ?: Long.MAX_VALUE })
@@ -207,6 +228,9 @@ object UniversalSearchEngine {
         val matchedMembers = if (
             filter.selectedCategory != null ||
             normalizedSelectedTags.isNotEmpty() ||
+            filter.dateQuery.isNotBlank() ||
+            filter.dateFrom.isNotBlank() ||
+            filter.dateTo.isNotBlank() ||
             filter.onlyFavorites
         ) {
             emptyList()
@@ -319,12 +343,87 @@ object UniversalSearchEngine {
         return summary.copy(score = score)
     }
 
+    fun scoreDocumentMatch(
+        doc: VaultDocument,
+        query: String,
+        selectedCategory: String? = null,
+        selectedTags: Set<String> = emptySet(),
+        dateQuery: String = "",
+        dateFrom: String = "",
+        dateTo: String = "",
+        onlyActive: Boolean = false,
+        onlyHousehold: Boolean = false,
+        onlyFavorites: Boolean = false
+    ): ScoredSearchMatch<VaultDocument>? {
+        val tokens = tokenize(query)
+        val normalizedQuery = normalize(query)
+        val normalizedSelectedTags = selectedTags.map { normalize(it) }.filter { it.isNotBlank() }.toSet()
+        return scoreDocument(
+            doc = doc,
+            tokens = tokens,
+            normalizedQuery = normalizedQuery,
+            selectedCategory = selectedCategory,
+            selectedTagsNormalized = normalizedSelectedTags,
+            dateQuery = dateQuery,
+            dateFrom = dateFrom,
+            dateTo = dateTo,
+            onlyActive = onlyActive,
+            onlyHousehold = onlyHousehold,
+            onlyFavorites = onlyFavorites
+        )
+    }
+
+    fun matchesDateCriteria(
+        primaryIso: String,
+        secondaryIso: String,
+        dateQuery: String,
+        dateFrom: String,
+        dateTo: String
+    ): Boolean {
+        val q = normalize(dateQuery)
+        if (q.isNotBlank()) {
+            val candidates = buildList {
+                if (primaryIso.isNotBlank()) {
+                    add(normalize(primaryIso))
+                    add(normalize(DateUtils.formatFrench(primaryIso)))
+                    add(normalize(DateUtils.formatFrenchNumeric(primaryIso)))
+                }
+                if (secondaryIso.isNotBlank()) {
+                    add(normalize(secondaryIso))
+                    add(normalize(DateUtils.formatFrench(secondaryIso)))
+                    add(normalize(DateUtils.formatFrenchNumeric(secondaryIso)))
+                }
+            }
+            if (candidates.none { it.contains(q) }) return false
+        }
+
+        val fromBound = dateFrom.trim()
+        val toBound = dateTo.trim()
+        if (fromBound.isNotBlank() || toBound.isNotBlank()) {
+            val effectiveIso = primaryIso.trim().ifBlank { secondaryIso.trim() }
+            if (effectiveIso.isBlank()) return false
+            if (fromBound.isNotBlank() && effectiveIso < fromBound) return false
+            if (toBound.isNotBlank()) {
+                val expandedEnd = when (toBound.length) {
+                    4 -> "$toBound-12-31"
+                    7 -> "$toBound-31"
+                    else -> toBound
+                }
+                if (effectiveIso > expandedEnd) return false
+            }
+        }
+        return true
+    }
+
     private fun scoreDocument(
         doc: VaultDocument,
         tokens: List<String>,
         normalizedQuery: String,
         selectedCategory: String?,
         selectedTagsNormalized: Set<String>,
+        dateQuery: String = "",
+        dateFrom: String = "",
+        dateTo: String = "",
         onlyActive: Boolean,
         onlyHousehold: Boolean,
         onlyFavorites: Boolean
@@ -333,14 +432,24 @@ object UniversalSearchEngine {
         if (onlyActive && doc.status != "active") return null
         if (onlyHousehold && doc.visibility != "household") return null
         if (onlyFavorites && !doc.favorite) return null
+        if (!matchesDateCriteria(doc.docDate, doc.expirationDate, dateQuery, dateFrom, dateTo)) return null
 
         val normalizedDocTags = doc.tags.map { normalize(it) }
         if (selectedTagsNormalized.isNotEmpty() && !selectedTagsNormalized.all { sel -> normalizedDocTags.any { it == sel } }) {
             return null
         }
 
+        val hasDateFilter = dateQuery.isNotBlank() || dateFrom.isNotBlank() || dateTo.isNotBlank()
         if (tokens.isEmpty()) {
-            return ScoredSearchMatch(item = doc, score = if (doc.favorite) 10 else 1)
+            val baseReasons = buildList {
+                if (selectedCategory != null) add("Catégorie")
+                if (hasDateFilter) add("Date")
+            }
+            return ScoredSearchMatch(
+                item = doc,
+                score = if (doc.favorite) 10 else 1,
+                matchReasons = baseReasons
+            )
         }
 
         val normTitle = normalize(doc.title)
@@ -351,18 +460,29 @@ object UniversalSearchEngine {
         val normRef = normalize(doc.referenceNumber)
         val normNotes = normalize(doc.notes)
         val normOcr = normalize(doc.ocrText)
+        val normDocDate = listOf(
+            normalize(doc.docDate),
+            if (doc.docDate.isNotBlank()) normalize(DateUtils.formatFrench(doc.docDate)) else "",
+            if (doc.docDate.isNotBlank()) normalize(DateUtils.formatFrenchNumeric(doc.docDate)) else ""
+        ).filter { it.isNotBlank() }.joinToString(" ")
+        val normExpDate = listOf(
+            normalize(doc.expirationDate),
+            if (doc.expirationDate.isNotBlank()) normalize(DateUtils.formatFrench(doc.expirationDate)) else "",
+            if (doc.expirationDate.isNotBlank()) normalize(DateUtils.formatFrenchNumeric(doc.expirationDate)) else ""
+        ).filter { it.isNotBlank() }.joinToString(" ")
         val normTagsJoined = normalizedDocTags.joinToString(" ")
         val formattedAmount = if (doc.amount > 0) "%.2f".format(Locale.US, doc.amount) else ""
         val combined = listOf(
             normTitle, normIssuer, normCategory, normDocType, normFolder,
             normRef, normNotes, normOcr, normTagsJoined,
-            normalize(doc.docDate), normalize(doc.expirationDate), formattedAmount
+            normDocDate, normExpDate, formattedAmount
         ).joinToString(" ")
 
         if (!tokens.all { combined.contains(it) }) return null
 
         var score = 0
         val reasons = linkedSetOf<String>()
+        if (hasDateFilter) reasons.add("Date")
 
         if (normTitle == normalizedQuery) score += 120
         else if (normTitle.startsWith(normalizedQuery)) score += 90
@@ -380,6 +500,10 @@ object UniversalSearchEngine {
             if (normIssuer.contains(token)) {
                 score += 32
                 reasons.add("Organisme")
+            }
+            if (normDocDate.contains(token) || normExpDate.contains(token)) {
+                score += 26
+                reasons.add("Date")
             }
             if (normCategory.contains(token) || normDocType.contains(token) || normFolder.contains(token)) {
                 score += 24

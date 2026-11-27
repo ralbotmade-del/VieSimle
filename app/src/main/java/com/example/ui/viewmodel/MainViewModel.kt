@@ -14,6 +14,8 @@ import com.example.data.AiAssistantRepository
 import com.example.data.DocumentSmartSorter
 import com.example.data.DocumentSortMode
 import com.example.data.ExtractedDocumentInfo
+import com.example.data.FirestoreDocumentSearchQuery
+import com.example.data.FirestoreDocumentSearchResult
 import com.example.data.FrequentTagStat
 import com.example.data.HouseholdRepository
 import com.example.data.RankedVaultDocument
@@ -42,6 +44,7 @@ import com.example.notifications.FcmReminderSyncManager
 import com.example.notifications.FcmSyncStatus
 import com.example.notifications.ReminderScheduler
 import com.example.notifications.SystemCalendarSyncManager
+import com.example.widget.WidgetSnapshotManager
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -148,6 +151,13 @@ class MainViewModel(
     private val _documentSortMode = MutableStateFlow(DocumentSortMode.SMART_AUTO)
     val documentSortMode: StateFlow<DocumentSortMode> = _documentSortMode.asStateFlow()
 
+    private val _autoTaggingDocId = MutableStateFlow<String?>(null)
+    val autoTaggingDocId: StateFlow<String?> = _autoTaggingDocId.asStateFlow()
+
+    private val _firestoreDocSearchState = MutableStateFlow<UiState<FirestoreDocumentSearchResult>?>(null)
+    val firestoreDocSearchState: StateFlow<UiState<FirestoreDocumentSearchResult>?> = _firestoreDocSearchState.asStateFlow()
+
+    private var firestoreSearchJob: kotlinx.coroutines.Job? = null
     private var lastBackgroundTimestamp = 0L
 
     val securitySettings: StateFlow<UserSecuritySettings> = securityPrefs.settingsFlow
@@ -201,6 +211,24 @@ class MainViewModel(
                     displayName = user.displayName ?: "Utilisateur VieSimple",
                     email = user.email.orEmpty()
                 )
+            }
+        }
+        appContext?.let { ctx ->
+            viewModelScope.launch {
+                combine(subscriptionsState, deadlinesState) { subsUi, deadlinesUi ->
+                    subsUi to deadlinesUi
+                }.collect { (subsUi, deadlinesUi) ->
+                    if (subsUi !is UiState.Loading && deadlinesUi !is UiState.Loading) {
+                        val subs = (subsUi as? UiState.Success)?.data ?: emptyList()
+                        val dls = (deadlinesUi as? UiState.Success)?.data ?: emptyList()
+                        WidgetSnapshotManager.syncAndUpdateWidget(
+                            context = ctx,
+                            subscriptions = subs,
+                            deadlines = dls,
+                            isAuthenticated = true
+                        )
+                    }
+                }
             }
         }
     }
@@ -460,12 +488,59 @@ class MainViewModel(
         _searchFilterState.value = cur.copy(onlyFavorites = !cur.onlyFavorites)
     }
 
+    fun setSearchDateFilters(dateQuery: String, dateFrom: String, dateTo: String) {
+        _searchFilterState.value = _searchFilterState.value.copy(
+            dateQuery = dateQuery,
+            dateFrom = dateFrom,
+            dateTo = dateTo
+        )
+    }
+
+    fun searchDocumentsInFirestore(
+        keywords: String,
+        category: String?,
+        dateQuery: String = "",
+        dateFrom: String = "",
+        dateTo: String = "",
+        onlyFavorites: Boolean = false
+    ) {
+        val cleanQuery = FirestoreDocumentSearchQuery(
+            keywords = keywords.trim(),
+            category = category?.takeIf { it.isNotBlank() },
+            dateQuery = dateQuery.trim(),
+            dateFrom = dateFrom.trim(),
+            dateTo = dateTo.trim(),
+            onlyFavorites = onlyFavorites
+        )
+        firestoreSearchJob?.cancel()
+        firestoreSearchJob = viewModelScope.launch {
+            _firestoreDocSearchState.value = UiState.Loading
+            repo.searchVaultDocumentsFirestore(cleanQuery)
+                .onSuccess { result ->
+                    _firestoreDocSearchState.value = UiState.Success(result)
+                }
+                .onFailure { err ->
+                    _firestoreDocSearchState.value = UiState.Error(
+                        err.localizedMessage ?: "Erreur lors de la recherche Firestore."
+                    )
+                }
+        }
+    }
+
+    fun clearFirestoreDocumentSearch() {
+        firestoreSearchJob?.cancel()
+        _firestoreDocSearchState.value = null
+    }
+
     fun resetSearchFilters(keepQuery: Boolean = false) {
         val cur = _searchFilterState.value
         _searchFilterState.value = UniversalSearchFilterState(
             query = if (keepQuery) cur.query else "",
             activeTab = SearchScopeTab.ALL
         )
+        if (!keepQuery) {
+            clearFirestoreDocumentSearch()
+        }
     }
 
     val householdActivities: StateFlow<List<HouseholdActivity>> =
@@ -1108,7 +1183,10 @@ class MainViewModel(
                         issuer = enrichedInfo.issuer.trim(),
                         referenceNumber = enrichedInfo.referenceNumber.trim(),
                         amount = enrichedInfo.amount,
-                        tags = (enrichedInfo.tags + if (hasGrayscalePdf) listOf("PDF N&B") else emptyList()).distinct(),
+                        tags = AiAssistantRepository.sanitizeTags(
+                            enrichedInfo.tags + if (hasGrayscalePdf) listOf("PDF N&B") else emptyList(),
+                            maxTags = 10
+                        ),
                         confidentiality = if (isSensitive) "sensitive" else "standard",
                         ocrText = enrichedInfo.ocrText,
                         ocrConfidence = enrichedInfo.confidence,
@@ -1197,6 +1275,56 @@ class MainViewModel(
 
     fun resetOcrState() {
         _ocrState.value = OcrScanState.Idle
+    }
+
+    fun autoCategorizeAndTagDocument(doc: VaultDocument, onUpdated: (VaultDocument) -> Unit = {}) {
+        if (_autoTaggingDocId.value != null) return
+        viewModelScope.launch {
+            _autoTaggingDocId.value = doc.id
+            try {
+                val res = aiRepo.autoCategorizeDocument(
+                    title = doc.title,
+                    docType = doc.docType,
+                    issuer = doc.issuer,
+                    ocrText = doc.ocrText,
+                    notes = doc.notes
+                )
+                res.onSuccess { result ->
+                    val mergedTags = AiAssistantRepository.mergeTags(
+                        existingTags = doc.tags,
+                        aiTags = result.tags,
+                        maxTags = 10
+                    )
+                    val nextCategory = if (result.category.isNotBlank() && result.category != "Autre") {
+                        result.category
+                    } else {
+                        doc.category
+                    }
+                    val nextDocType = doc.docType.ifBlank { result.docType }
+                    val updatedDoc = doc.copy(
+                        category = nextCategory,
+                        docType = nextDocType,
+                        tags = mergedTags
+                    )
+                    repo.saveDocument(updatedDoc)
+                        .onSuccess {
+                            val tagPreview = mergedTags.take(4).joinToString(", ")
+                            _actionMessage.value = buildString {
+                                append("IA Gemini : ${updatedDoc.category}")
+                                if (tagPreview.isNotBlank()) append(" · $tagPreview")
+                            }
+                            onUpdated(updatedDoc)
+                        }
+                        .onFailure { err ->
+                            _actionMessage.value = "Impossible d’enregistrer les tags IA : ${err.localizedMessage ?: "erreur Firestore"}"
+                        }
+                }.onFailure { err ->
+                    _actionMessage.value = err.localizedMessage ?: "La catégorisation Gemini a échoué."
+                }
+            } finally {
+                _autoTaggingDocId.value = null
+            }
+        }
     }
 
     fun sendAiMessage(userPrompt: String) {
@@ -1378,6 +1506,7 @@ class MainViewModel(
             runCatching {
                 SystemCalendarSyncManager.clearAllSyncedEvents(ctx, currentUserId, cache, securityPrefs)
                 repo.clearLocalCache(currentUserId)
+                WidgetSnapshotManager.clearAndUpdateWidget(ctx)
             }
             onReadyToSignOut()
         }
@@ -1420,6 +1549,7 @@ class MainViewModel(
             householdRepo.deleteAllOwnedUserData(context)
                 .onSuccess {
                     repo.clearLocalCache(currentUserId)
+                    WidgetSnapshotManager.clearAndUpdateWidget(ctx)
                     securityPrefs.clearAllLocalPreferences()
                     onComplete()
                 }

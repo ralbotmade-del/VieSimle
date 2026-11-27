@@ -25,10 +25,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.BookmarkAdd
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.Clear
+import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Group
@@ -68,10 +70,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.R
+import com.example.data.FirestoreDocumentSearchResult
 import com.example.data.SearchScopeTab
 import com.example.data.UniversalSearchEngine
 import com.example.data.UniversalSearchResults
@@ -87,15 +92,19 @@ import com.example.ui.components.SearchTagResultCard
 import com.example.ui.components.SearchTaskResultCard
 import com.example.ui.components.SectionHeader
 import com.example.ui.components.rememberAnimatedCount
+import com.example.ui.viewmodel.UiState
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun UniversalSearchScreen(
     results: UniversalSearchResults,
     recentSearches: List<String>,
+    firestoreDocSearchState: UiState<FirestoreDocumentSearchResult>? = null,
     onQueryChange: (String) -> Unit,
     onSelectTab: (SearchScopeTab) -> Unit,
     onSelectCategory: (String?) -> Unit,
+    onDateFiltersChange: (dateQuery: String, dateFrom: String, dateTo: String) -> Unit = { _, _, _ -> },
+    onTriggerFirestoreDocSearch: () -> Unit = {},
     onToggleTag: (String) -> Unit,
     onToggleActiveOnly: () -> Unit,
     onToggleHouseholdOnly: () -> Unit,
@@ -112,6 +121,11 @@ fun UniversalSearchScreen(
     val focusManager = LocalFocusManager.current
     val filter = results.filter
     var showCategoryChips by remember { mutableStateOf(filter.selectedCategory != null) }
+    var showDateFilters by remember {
+        mutableStateOf(
+            filter.dateQuery.isNotBlank() || filter.dateFrom.isNotBlank() || filter.dateTo.isNotBlank()
+        )
+    }
     val selectedTagsNormalized = remember(filter.selectedTags) {
         filter.selectedTags.map { UniversalSearchEngine.normalize(it) }.toSet()
     }
@@ -255,7 +269,7 @@ fun UniversalSearchScreen(
                     }
                 }
 
-                // Quick criteria filters + Category toggle
+                // Quick criteria filters + Category & Date toggles + Firestore Document Search
                 item {
                     Row(
                         modifier = Modifier
@@ -271,6 +285,22 @@ fun UniversalSearchScreen(
                                 Text(filter.selectedCategory?.let { "Catégorie : $it" } ?: "Catégories")
                             },
                             modifier = Modifier.testTag("search_toggle_categories_chip")
+                        )
+                        FilterChip(
+                            selected = showDateFilters || filter.dateQuery.isNotBlank() || filter.dateFrom.isNotBlank() || filter.dateTo.isNotBlank(),
+                            onClick = { showDateFilters = !showDateFilters },
+                            leadingIcon = { Icon(Icons.Outlined.CalendarMonth, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            label = { Text("Date") },
+                            modifier = Modifier.testTag("search_toggle_date_chip")
+                        )
+                        AssistChip(
+                            onClick = {
+                                focusManager.clearFocus()
+                                onTriggerFirestoreDocSearch()
+                            },
+                            leadingIcon = { Icon(Icons.Outlined.CloudDone, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                            label = { Text(stringResource(R.string.doc_search_firestore_btn)) },
+                            modifier = Modifier.testTag("search_firestore_docs_btn")
                         )
                         FilterChip(
                             selected = filter.onlyActiveOrOpen,
@@ -305,6 +335,106 @@ fun UniversalSearchScreen(
                             selectedCategory = filter.selectedCategory,
                             onSelectCategory = onSelectCategory
                         )
+                    }
+                }
+
+                // Expandable date filter strip + Firestore search status
+                item {
+                    AnimatedVisibility(
+                        visible = showDateFilters ||
+                            filter.dateQuery.isNotBlank() ||
+                            filter.dateFrom.isNotBlank() ||
+                            filter.dateTo.isNotBlank() ||
+                            firestoreDocSearchState != null
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (showDateFilters || filter.dateQuery.isNotBlank() || filter.dateFrom.isNotBlank() || filter.dateTo.isNotBlank()) {
+                                OutlinedTextField(
+                                    value = filter.dateQuery,
+                                    onValueChange = { onDateFiltersChange(it, filter.dateFrom, filter.dateTo) },
+                                    leadingIcon = { Icon(Icons.Outlined.CalendarToday, contentDescription = null) },
+                                    placeholder = { Text(stringResource(R.string.doc_search_date_placeholder)) },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier.fillMaxWidth().testTag("search_date_query_input")
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedTextField(
+                                        value = filter.dateFrom,
+                                        onValueChange = { onDateFiltersChange(filter.dateQuery, it, filter.dateTo) },
+                                        label = { Text(stringResource(R.string.doc_search_date_from)) },
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(14.dp),
+                                        modifier = Modifier.weight(1f).testTag("search_date_from_input")
+                                    )
+                                    OutlinedTextField(
+                                        value = filter.dateTo,
+                                        onValueChange = { onDateFiltersChange(filter.dateQuery, filter.dateFrom, it) },
+                                        label = { Text(stringResource(R.string.doc_search_date_to)) },
+                                        singleLine = true,
+                                        shape = RoundedCornerShape(14.dp),
+                                        modifier = Modifier.weight(1f).testTag("search_date_to_input")
+                                    )
+                                }
+                            }
+
+                            when (firestoreDocSearchState) {
+                                is UiState.Loading -> {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Text(stringResource(R.string.doc_search_loading), style = MaterialTheme.typography.labelMedium)
+                                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                        }
+                                    }
+                                }
+                                is UiState.Success -> {
+                                    val fsRes = firestoreDocSearchState.data
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.fillMaxWidth().testTag("search_firestore_status")
+                                    ) {
+                                        Text(
+                                            text = buildString {
+                                                append(
+                                                    if (fsRes.usedServerQuery) {
+                                                        stringResource(R.string.doc_search_results_server, fsRes.matches.size)
+                                                    } else {
+                                                        stringResource(R.string.doc_search_results_cache, fsRes.matches.size)
+                                                    }
+                                                )
+                                                append(" (${fsRes.appliedFirestoreFilters.joinToString(", ")})")
+                                            },
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                        )
+                                    }
+                                }
+                                is UiState.Error -> {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.errorContainer,
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = firestoreDocSearchState.message,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onErrorContainer,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                        )
+                                    }
+                                }
+                                null -> Unit
+                            }
+                        }
                     }
                 }
 
